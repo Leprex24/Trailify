@@ -18,3 +18,6 @@ secrets.properties
 *.jks
 *.keystore
 .env
+
+# Wyniki budowania wszystkich modułów
+build/

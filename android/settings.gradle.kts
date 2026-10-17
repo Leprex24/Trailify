@@ -23,5 +23,21 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Trailify"
+
 include(":app")
- 
+
+// Wspólne
+include(":core-domain")
+include(":core-ui")
+include(":core-data")
+
+// Funkcje - Kacper
+include(":feature-map")
+include(":feature-routes")
+include(":feature-recording")
+
+// Funkcje - Mikołaj
+include(":feature-auth")
+include(":feature-discover")
+include(":feature-community")
+include(":feature-profile")

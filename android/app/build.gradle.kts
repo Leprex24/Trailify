@@ -37,14 +37,38 @@ android {
 }
 
 dependencies {
+    // moduły projektu
+    implementation(project(":core-domain"))
+    implementation(project(":core-ui"))
+    implementation(project(":core-data"))
+    implementation(project(":feature-map"))
+    implementation(project(":feature-routes"))
+    implementation(project(":feature-recording"))
+    implementation(project(":feature-auth"))
+    implementation(project(":feature-discover"))
+    implementation(project(":feature-community"))
+    implementation(project(":feature-profile"))
+
+    // Compose
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.navigation.compose)
+
+    // DI
+    implementation(platform(libs.koin.bom))
+    implementation(libs.koin.android)
+    implementation(libs.koin.androidx.compose)
+
+    implementation(libs.kotlinx.coroutines.android)
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
