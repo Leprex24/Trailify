@@ -1,0 +1,27 @@
+# Lokalna baza PostgreSQL z PostGIS (opcjonalna; domyślnie backend używa bazy z Supabase).
+# Start:  docker compose up -d db
+# Stop:   docker compose down        (dane zostają w wolumenie)
+# Reset:  docker compose down -v     (usuwa dane, migracje wykonają się od nowa)
+services:
+  db:
+    # Supabase działa na nowszym PostgreSQL, ale dla migracji różnica nie ma znaczenia (PG 15+).
+    image: postgis/postgis:16-3.4
+    container_name: trailify-db
+    environment:
+      POSTGRES_DB: trailify
+      POSTGRES_USER: trailify
+      POSTGRES_PASSWORD: trailify
+    ports:
+      - "5433:5432"
+    volumes:
+      - trailify-db-data:/var/lib/postgresql/data
+      # skrypty z tego folderu wykonują się raz, przy tworzeniu pustej bazy
+      - ./docker/local-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trailify -d trailify"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  trailify-db-data:

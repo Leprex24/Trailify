@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: trailify-backend
+  config:
+    # Wczytuje klucze z pliku .env z głównego folderu repo (backend/ jest katalogiem roboczym).
+    # Plik jest opcjonalny: zmienne środowiskowe o tych samych nazwach też działają.
+    import: "optional:file:../.env[.properties]"
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      # Supabase ogranicza liczbę połączeń przez pooler, a pracują dwie osoby
+      maximum-pool-size: 5
+  jpa:
+    open-in-view: false
+    hibernate:
+      # schemat tworzy wyłącznie Flyway (db/migration), Hibernate niczego nie zmienia
+      ddl-auto: none
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+supabase:
+  url: ${SUPABASE_URL}
+  # domyślnie standardowy adres kluczy publicznych Supabase Auth
+  jwks-url: ${SUPABASE_JWKS_URL:${SUPABASE_URL}/auth/v1/.well-known/jwks.json}

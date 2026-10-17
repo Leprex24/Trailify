@@ -1,0 +1,8 @@
+# Profil "local": baza z docker-compose.yml zamiast Supabase.
+# Uruchomienie: SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
+# SUPABASE_URL nadal jest potrzebne w .env (tokeny sprawdzamy kluczami Supabase).
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/trailify
+    username: trailify
+    password: trailify
