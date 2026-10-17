@@ -1,0 +1,97 @@
+erDiagram
+    profile ||--o{ route : "tworzy"
+    profile ||--o{ activity : "rejestruje"
+    profile ||--o{ review : "pisze"
+    profile ||--o{ poi_collection : "zbiera"
+    profile |o--o{ point_of_interest : "zgłasza"
+    route ||--o{ review : "ma"
+    route |o--o{ activity : "przebyta w"
+    activity ||--o{ gps_point : "składa się z"
+    point_of_interest ||--o{ poi_collection : "zebrany jako"
+    route ||--o{ photo : "ma zdjęcia"
+    review ||--o{ photo : "ma zdjęcia"
+    point_of_interest ||--o| photo : "ma zdjęcie"
+
+    profile {
+        uuid id PK,FK "to samo id co auth.users"
+        varchar email UK
+        varchar display_name
+        varchar avatar_url
+        varchar role "USER lub ADMIN"
+        varchar status "ACTIVE lub BLOCKED"
+        timestamptz created_at
+    }
+    route {
+        bigint id PK
+        uuid user_id FK
+        varchar name
+        text description
+        varchar activity_type "CYCLING RUNNING WALKING"
+        boolean is_tourist
+        boolean is_scenic
+        boolean is_public
+        double total_distance "metry"
+        integer duration_seconds
+        geometry geometry "LineString 4326"
+        timestamptz created_at
+    }
+    activity {
+        bigint id PK
+        uuid client_id UK "unikalne z user_id"
+        uuid user_id FK
+        bigint route_id FK "null dla spontanicznych"
+        varchar type
+        timestamptz start_time
+        timestamptz end_time
+        double distance
+        integer duration_seconds
+        double avg_pace "min/km"
+        integer step_count
+        geometry geometry "LineString 4326"
+        timestamptz created_at
+    }
+    gps_point {
+        bigint id PK
+        bigint activity_id FK
+        double latitude
+        double longitude
+        double altitude
+        double speed "m/s"
+        timestamptz recorded_at
+        boolean is_reconstructed "true = odtworzony przez AI"
+    }
+    review {
+        bigint id PK
+        uuid user_id FK "unikalne z route_id"
+        bigint route_id FK
+        smallint rating "1 do 5"
+        text comment
+        timestamptz created_at
+    }
+    photo {
+        bigint id PK
+        bigint review_id FK "dokładnie jedno z trzech"
+        bigint route_id FK "dokładnie jedno z trzech"
+        bigint poi_id FK "dokładnie jedno z trzech"
+        varchar url
+        varchar storage_key UK
+        timestamptz uploaded_at
+    }
+    point_of_interest {
+        bigint id PK
+        uuid submitted_by FK "null po usunięciu konta"
+        varchar name
+        text description
+        double latitude
+        double longitude
+        varchar status "PENDING APPROVED REJECTED"
+        text rejection_reason
+        timestamptz created_at
+        geometry location "wyliczane z lat i lon"
+    }
+    poi_collection {
+        bigint id PK
+        uuid user_id FK "unikalne z poi_id"
+        bigint poi_id FK
+        timestamptz collected_at
+    }

@@ -1,0 +1,1310 @@
+openapi: 3.0.3
+info:
+  title: Trailify API
+  version: 0.1.0
+  description: |
+    Kontrakt API między aplikacją Android a backendem Trailify (Spring Boot).
+    Wersja robocza (szkic z etapu 0). Zmiany w tym pliku wchodzą przez Pull Request
+    zatwierdzony przez obie osoby.
+
+    ## Konwencje
+    - Wszystkie adresy mają prefiks `/api/v1` (patrz `servers`).
+    - Uwierzytelnianie: nagłówek `Authorization: Bearer <JWT z Supabase Auth>`.
+      Endpointy publiczne mają `security: []` i działają bez tokena.
+    - Czas: ISO 8601 w UTC (`2026-10-20T14:30:00Z`).
+    - Dystans w **metrach**, czas w **sekundach**, tempo w **min/km**, prędkość w **m/s**.
+    - Identyfikatory encji (trasa, aktywność, recenzja, POI) to `int64`.
+      Identyfikator użytkownika to UUID (taki sam jak `auth.users.id` w Supabase).
+    - Geometria to GeoJSON `LineString`. Kolejność współrzędnych: `[longitude, latitude]`
+      (lub `[longitude, latitude, altitude]`).
+    - Paginacja: parametry `page` (od 0) i `size` (domyślnie 20, maks. 100).
+
+    ## Zdjęcia
+    Aplikacja wgrywa plik **bezpośrednio do Supabase Storage** do ścieżki
+    `<bucket>/<userId>/<uuid>.<ext>` (buckety: `avatars`, `route-photos`,
+    `review-photos`, `poi-photos`), a do API wysyła tylko `storageKey` i `url`.
+    Backend odrzuca `storageKey`, który nie zaczyna się od identyfikatora zalogowanego
+    użytkownika.
+
+    ## Podział odpowiedzialności
+    Pole `x-owner` przy operacji wskazuje, kto implementuje endpoint po stronie backendu.
+  contact:
+    name: Zespół Trailify
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Lokalnie (Docker)
+tags:
+  - name: Konto
+    description: Profil zalogowanego użytkownika (W25–W27)
+  - name: Trasy
+    description: Publikowanie, wyszukiwanie i przeglądanie tras (W2, W3, W16–W19)
+  - name: Aktywności
+    description: Zarejestrowane aktywności i ślad GPS (W14, W25)
+  - name: Recenzje
+    description: Oceny i zdjęcia do ukończonych tras (W20, W21)
+  - name: Ciekawe punkty
+    description: Przeglądanie, zgłaszanie i zbieranie POI (W4, W22–W24)
+  - name: Admin
+    description: Moderacja treści i kont (W29–W34)
+security:
+  - bearerAuth: []
+paths:
+  /me:
+    get:
+      tags: [Konto]
+      operationId: getMe
+      summary: Profil zalogowanego użytkownika wraz ze statystykami
+      x-owner: Mikołaj
+      responses:
+        '200':
+          description: Profil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    patch:
+      tags: [Konto]
+      operationId: updateMe
+      summary: Edycja danych konta (W26)
+      x-owner: Mikołaj
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+      responses:
+        '200':
+          description: Zaktualizowany profil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags: [Konto]
+      operationId: deleteMe
+      summary: Usunięcie konta wraz ze wszystkimi danymi (W27)
+      description: |
+        Usuwa profil, aktywności, trasy, recenzje, zebrane punkty oraz pliki ze Storage
+        i konto w Supabase Auth. Operacja nieodwracalna.
+      x-owner: Mikołaj
+      responses:
+        '204':
+          description: Konto usunięte
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /me/activities:
+    get:
+      tags: [Konto, Aktywności]
+      operationId: getMyActivities
+      summary: Historia aktywności zalogowanego użytkownika (W25)
+      description: Posortowana od najnowszej.
+      x-owner: Kacper
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Strona aktywności
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /me/routes:
+    get:
+      tags: [Konto, Trasy]
+      operationId: getMyRoutes
+      summary: Trasy zalogowanego użytkownika (publiczne i prywatne)
+      x-owner: Kacper
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Strona tras
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoutePage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /me/poi-collection:
+    get:
+      tags: [Konto, Ciekawe punkty]
+      operationId: getMyPoiCollection
+      summary: Punkty zebrane przez zalogowanego użytkownika (W24)
+      x-owner: Mikołaj
+      responses:
+        '200':
+          description: Lista zebranych punktów, od najnowszego
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PoiCollectionEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /routes:
+    get:
+      tags: [Trasy]
+      operationId: searchRoutes
+      summary: Wyszukiwanie opublikowanych tras (W2, W3)
+      description: |
+        Zwraca tylko trasy publiczne. Parametry `lat`, `lng` i `radiusKm` podaje się razem.
+        Przy `sort=nearest` wymagane są `lat` i `lng`.
+        Sortowanie `recommended` używa pola `recommendationScore` liczonego na podstawie
+        ocen i ich liczby (np. średnia bayesowska). Wzór ustala moduł Ocen.
+        Cel wydajnościowy: odpowiedź poniżej 2 s.
+      security: []
+      x-owner: Kacper
+      parameters:
+        - name: lat
+          in: query
+          schema: { type: number, format: double, minimum: -90, maximum: 90 }
+        - name: lng
+          in: query
+          schema: { type: number, format: double, minimum: -180, maximum: 180 }
+        - name: radiusKm
+          in: query
+          schema: { type: number, format: double, minimum: 0.1, maximum: 200, default: 10 }
+        - name: activityType
+          in: query
+          description: Jeden lub kilka typów, np. `activityType=CYCLING,WALKING`
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/ActivityType'
+        - name: minDistance
+          in: query
+          description: Minimalny dystans w metrach
+          schema: { type: number, format: double, minimum: 0 }
+        - name: maxDistance
+          in: query
+          description: Maksymalny dystans w metrach
+          schema: { type: number, format: double, minimum: 0 }
+        - name: minRating
+          in: query
+          schema: { type: number, format: double, minimum: 1, maximum: 5 }
+        - name: isTourist
+          in: query
+          schema: { type: boolean }
+        - name: isScenic
+          in: query
+          schema: { type: boolean }
+        - name: q
+          in: query
+          description: Fragment nazwy trasy
+          schema: { type: string, maxLength: 100 }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [recommended, rating, newest, nearest, distance]
+            default: recommended
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Strona wyników
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoutePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    post:
+      tags: [Trasy]
+      operationId: createRoute
+      summary: Publikacja trasy (W16–W19)
+      description: |
+        Trasę tworzy się z zarejestrowanej aktywności (`activityId`, geometria jest
+        kopiowana z aktywności) albo z samej geometrii (`geometry`, np. trasa
+        zaplanowana na mapie). Należy podać dokładnie jedno z tych dwóch pól.
+        Statystyki (dystans, czas) backend wylicza sam.
+      x-owner: Kacper
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteCreate'
+      responses:
+        '201':
+          description: Trasa utworzona
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Route'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /routes/{routeId}:
+    parameters:
+      - $ref: '#/components/parameters/RouteId'
+    get:
+      tags: [Trasy]
+      operationId: getRoute
+      summary: Szczegóły trasy wraz z geometrią i zdjęciami (W2)
+      description: |
+        Trasa prywatna jest widoczna tylko dla właściciela (W19). Dla pozostałych
+        użytkowników odpowiedź to `404`.
+      security: []
+      x-owner: Kacper
+      responses:
+        '200':
+          description: Trasa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Route'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Trasy]
+      operationId: updateRoute
+      summary: Edycja metadanych trasy (tylko właściciel)
+      description: Geometrii nie można zmienić po publikacji.
+      x-owner: Kacper
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteUpdate'
+      responses:
+        '200':
+          description: Zaktualizowana trasa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Route'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Trasy, Admin]
+      operationId: deleteRoute
+      summary: Usunięcie trasy (właściciel lub administrator, W33)
+      x-owner: Kacper
+      responses:
+        '204':
+          description: Trasa usunięta
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /routes/{routeId}/reviews:
+    parameters:
+      - $ref: '#/components/parameters/RouteId'
+    get:
+      tags: [Recenzje]
+      operationId: listReviews
+      summary: Recenzje trasy (W2)
+      description: Dla tras prywatnych zwraca `404` (jak `getRoute`).
+      security: []
+      x-owner: Mikołaj
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Strona recenzji, od najnowszej
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewPage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Recenzje]
+      operationId: createReview
+      summary: Dodanie oceny i zdjęć do trasy (W20, W21)
+      description: |
+        Dozwolone tylko, jeśli użytkownik ukończył trasę, czyli ma zapisaną aktywność
+        z `routeId` równym tej trasie. W przeciwnym razie `403` z kodem `ROUTE_NOT_COMPLETED`.
+        Jeden użytkownik może ocenić trasę tylko raz (`409`). Właściciel nie ocenia
+        własnej trasy (`403`).
+      x-owner: Mikołaj
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewCreate'
+      responses:
+        '201':
+          description: Recenzja dodana
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /reviews/{reviewId}:
+    delete:
+      tags: [Recenzje, Admin]
+      operationId: deleteReview
+      summary: Usunięcie recenzji (autor lub administrator, W33)
+      x-owner: Mikołaj
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204':
+          description: Recenzja usunięta
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /activities:
+    post:
+      tags: [Aktywności]
+      operationId: createActivity
+      summary: Zapis zakończonej aktywności wraz ze śladem GPS (W14)
+      description: |
+        Aplikacja zapisuje aktywność lokalnie w Room i wysyła ją po zakończeniu
+        (lub później, gdy wróci internet). `clientId` to UUID generowany na telefonie.
+        Ponowna wysyłka tej samej aktywności zwraca `200` z istniejącym zasobem
+        zamiast duplikatu.
+      x-owner: Kacper
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityCreate'
+      responses:
+        '201':
+          description: Aktywność zapisana
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activity'
+        '200':
+          description: Aktywność o tym `clientId` już istnieje
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activity'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /activities/{activityId}:
+    parameters:
+      - $ref: '#/components/parameters/ActivityId'
+    get:
+      tags: [Aktywności]
+      operationId: getActivity
+      summary: Szczegóły aktywności (tylko właściciel)
+      x-owner: Kacper
+      responses:
+        '200':
+          description: Aktywność
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activity'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Aktywności]
+      operationId: deleteActivity
+      summary: Usunięcie aktywności (tylko właściciel)
+      x-owner: Kacper
+      responses:
+        '204':
+          description: Aktywność usunięta
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /activities/{activityId}/points:
+    parameters:
+      - $ref: '#/components/parameters/ActivityId'
+    get:
+      tags: [Aktywności]
+      operationId: getActivityPoints
+      summary: Punkty GPS aktywności (wraz z oznaczeniem punktów odtworzonych przez AI)
+      x-owner: Kacper
+      responses:
+        '200':
+          description: Punkty w kolejności rejestracji
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GpsPoint'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /pois:
+    get:
+      tags: [Ciekawe punkty]
+      operationId: listPois
+      summary: Zatwierdzone ciekawe punkty w widocznym obszarze mapy (W4)
+      security: []
+      x-owner: Mikołaj
+      parameters:
+        - name: bbox
+          in: query
+          required: true
+          description: Obszar w formacie `minLng,minLat,maxLng,maxLat`
+          schema:
+            type: string
+            example: '22.45,51.20,22.65,51.30'
+      responses:
+        '200':
+          description: Punkty o statusie `APPROVED`
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Poi'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    post:
+      tags: [Ciekawe punkty]
+      operationId: submitPoi
+      summary: Zgłoszenie propozycji nowego punktu (W22)
+      description: Punkt dostaje status `PENDING` i trafia do kolejki moderacji.
+      x-owner: Mikołaj
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PoiCreate'
+      responses:
+        '201':
+          description: Zgłoszenie przyjęte
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PoiAdmin'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /pois/{poiId}:
+    parameters:
+      - $ref: '#/components/parameters/PoiId'
+    get:
+      tags: [Ciekawe punkty]
+      operationId: getPoi
+      summary: Szczegóły zatwierdzonego punktu
+      security: []
+      x-owner: Mikołaj
+      responses:
+        '200':
+          description: Punkt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Poi'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /pois/{poiId}/collect:
+    parameters:
+      - $ref: '#/components/parameters/PoiId'
+    post:
+      tags: [Ciekawe punkty]
+      operationId: collectPoi
+      summary: Zebranie punktu, gdy użytkownik jest w jego pobliżu (W23)
+      description: |
+        Telefon wykrywa bliskość lokalnie (funkcja `nearbyPois`) i wysyła aktualną
+        pozycję. Backend sprawdza odległość (maks. 50 m) i odrzuca zbyt odległe pozycje
+        kodem `422 POI_TOO_FAR`. Ponowne zebranie tego samego punktu zwraca `409`.
+      x-owner: Mikołaj
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectRequest'
+      responses:
+        '201':
+          description: Punkt zebrany
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PoiCollectionEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: Użytkownik jest za daleko od punktu (`POI_TOO_FAR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/pois:
+    get:
+      tags: [Admin]
+      operationId: adminListPois
+      summary: Lista punktów do moderacji (W29)
+      x-owner: Mikołaj
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/PoiStatus'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Strona punktów
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PoiAdminPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Admin]
+      operationId: adminCreatePoi
+      summary: Dodanie punktu bez procesu zgłaszania (W31)
+      description: Punkt od razu dostaje status `APPROVED`.
+      x-owner: Mikołaj
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PoiCreate'
+      responses:
+        '201':
+          description: Punkt dodany
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PoiAdmin'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/pois/{poiId}:
+    parameters:
+      - $ref: '#/components/parameters/PoiId'
+    patch:
+      tags: [Admin]
+      operationId: adminUpdatePoi
+      summary: Edycja punktu (W32)
+      x-owner: Mikołaj
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PoiUpdate'
+      responses:
+        '200':
+          description: Zaktualizowany punkt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PoiAdmin'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Admin]
+      operationId: adminDeletePoi
+      summary: Usunięcie punktu (W32)
+      x-owner: Mikołaj
+      responses:
+        '204':
+          description: Punkt usunięty
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /admin/pois/{poiId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/PoiId'
+    post:
+      tags: [Admin]
+      operationId: adminApprovePoi
+      summary: Zatwierdzenie zgłoszonego punktu (W30)
+      x-owner: Mikołaj
+      responses:
+        '200':
+          description: Punkt zatwierdzony (`APPROVED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PoiAdmin'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /admin/pois/{poiId}/reject:
+    parameters:
+      - $ref: '#/components/parameters/PoiId'
+    post:
+      tags: [Admin]
+      operationId: adminRejectPoi
+      summary: Odrzucenie zgłoszonego punktu (W30)
+      x-owner: Mikołaj
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectRequest'
+      responses:
+        '200':
+          description: Punkt odrzucony (`REJECTED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PoiAdmin'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /admin/users:
+    get:
+      tags: [Admin]
+      operationId: adminListUsers
+      summary: Wyszukiwanie użytkowników (W34)
+      x-owner: Mikołaj
+      parameters:
+        - name: q
+          in: query
+          description: Fragment adresu e-mail lub nazwy użytkownika
+          schema: { type: string, maxLength: 100 }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Strona użytkowników
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/users/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    delete:
+      tags: [Admin]
+      operationId: adminDeleteUser
+      summary: Usunięcie konta użytkownika wraz z danymi (W34)
+      x-owner: Mikołaj
+      responses:
+        '204':
+          description: Konto usunięte
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /admin/users/{userId}/block:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    post:
+      tags: [Admin]
+      operationId: adminBlockUser
+      summary: Zablokowanie konta (W34)
+      description: |
+        Użytkownik zostaje wylogowany i nie może się ponownie zalogować. Opcjonalnie
+        można usunąć jego treści naruszające regulamin (`deleteContent`).
+      x-owner: Mikołaj
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                deleteContent:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Konto zablokowane
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /admin/users/{userId}/unblock:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    post:
+      tags: [Admin]
+      operationId: adminUnblockUser
+      summary: Odblokowanie konta (W34)
+      x-owner: Mikołaj
+      responses:
+        '200':
+          description: Konto odblokowane
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token dostępu z Supabase Auth
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: Numer strony, liczony od 0
+      schema: { type: integer, minimum: 0, default: 0 }
+    Size:
+      name: size
+      in: query
+      description: Liczba elementów na stronie
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    RouteId:
+      name: routeId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    ActivityId:
+      name: activityId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    PoiId:
+      name: poiId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Niepoprawne dane (`VALIDATION_ERROR`), szczegóły w `fieldErrors`
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Brak lub nieprawidłowy token (`UNAUTHORIZED`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: |
+        Brak uprawnień (`FORBIDDEN`) albo konto zablokowane (`ACCOUNT_BLOCKED`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Zasób nie istnieje lub nie jest widoczny dla użytkownika (`NOT_FOUND`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Konflikt, np. duplikat (`CONFLICT`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Stały kod błędu do obsługi w aplikacji
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          description: Opis błędu dla programisty
+        fieldErrors:
+          type: array
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field:
+                type: string
+                example: name
+              message:
+                type: string
+    PageMeta:
+      type: object
+      required: [page, size, totalElements, totalPages]
+      properties:
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+    ActivityType:
+      type: string
+      enum: [CYCLING, RUNNING, WALKING]
+    PoiStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED]
+    Role:
+      type: string
+      enum: [USER, ADMIN]
+    UserStatus:
+      type: string
+      enum: [ACTIVE, BLOCKED]
+    LatLng:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude: { type: number, format: double, minimum: -90, maximum: 90 }
+        longitude: { type: number, format: double, minimum: -180, maximum: 180 }
+    GeoJsonLineString:
+      type: object
+      description: 'GeoJSON LineString, współrzędne w kolejności [longitude, latitude, altitude?]'
+      required: [type, coordinates]
+      properties:
+        type:
+          type: string
+          enum: [LineString]
+        coordinates:
+          type: array
+          minItems: 2
+          items:
+            type: array
+            minItems: 2
+            maxItems: 3
+            items:
+              type: number
+              format: double
+          example: [[22.5684, 51.2465], [22.5701, 51.2480]]
+    Photo:
+      type: object
+      required: [id, url]
+      properties:
+        id: { type: integer, format: int64 }
+        url: { type: string, format: uri }
+    PhotoInput:
+      type: object
+      required: [storageKey, url]
+      properties:
+        storageKey:
+          type: string
+          description: Ścieżka pliku w Storage, zaczyna się od identyfikatora użytkownika
+          example: 3f1c2b7e-0000-0000-0000-000000000000/9a1b.jpg
+        url:
+          type: string
+          format: uri
+    UserSummary:
+      type: object
+      required: [id, displayName]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        avatarUrl: { type: string, format: uri, nullable: true }
+    ProfileStats:
+      type: object
+      required: [totalDistance, activityCount, routeCount, collectedPoiCount]
+      properties:
+        totalDistance:
+          type: number
+          format: double
+          description: Łączny dystans aktywności w metrach
+        activityCount: { type: integer }
+        routeCount: { type: integer }
+        collectedPoiCount: { type: integer }
+    Profile:
+      type: object
+      required: [id, email, displayName, role, createdAt, stats]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        avatarUrl: { type: string, format: uri, nullable: true }
+        role:
+          $ref: '#/components/schemas/Role'
+        createdAt: { type: string, format: date-time }
+        stats:
+          $ref: '#/components/schemas/ProfileStats'
+    ProfileUpdate:
+      type: object
+      description: Pola nieprzesłane pozostają bez zmian. `avatarUrl` = null usuwa avatar.
+      properties:
+        displayName: { type: string, minLength: 2, maxLength: 50 }
+        avatarUrl: { type: string, format: uri, nullable: true }
+    RouteSummary:
+      type: object
+      required: [id, name, activityType, isTourist, isScenic, reviewCount, owner, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        activityType:
+          $ref: '#/components/schemas/ActivityType'
+        isTourist: { type: boolean }
+        isScenic: { type: boolean }
+        isPublic: { type: boolean }
+        totalDistance:
+          type: number
+          format: double
+          nullable: true
+          description: Dystans w metrach
+        durationSeconds: { type: integer, nullable: true }
+        averageRating:
+          type: number
+          format: double
+          nullable: true
+          description: Średnia ocen (1–5), null gdy brak recenzji
+        reviewCount: { type: integer }
+        recommendationScore:
+          type: number
+          format: double
+          nullable: true
+          description: Wynik rankingu rekomendacji (np. średnia bayesowska)
+        startPoint:
+          $ref: '#/components/schemas/LatLng'
+        thumbnailUrl: { type: string, format: uri, nullable: true }
+        distanceFromQuery:
+          type: number
+          format: double
+          nullable: true
+          description: Odległość w metrach od punktu `lat`/`lng` z zapytania (tylko przy wyszukiwaniu)
+        owner:
+          $ref: '#/components/schemas/UserSummary'
+        createdAt: { type: string, format: date-time }
+    Route:
+      allOf:
+        - $ref: '#/components/schemas/RouteSummary'
+        - type: object
+          required: [geometry, photos]
+          properties:
+            description: { type: string, nullable: true }
+            geometry:
+              $ref: '#/components/schemas/GeoJsonLineString'
+            photos:
+              type: array
+              items:
+                $ref: '#/components/schemas/Photo'
+    RouteCreate:
+      type: object
+      required: [name, activityType, isTourist, isScenic, isPublic]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, maxLength: 5000, nullable: true }
+        activityType:
+          $ref: '#/components/schemas/ActivityType'
+        isTourist: { type: boolean }
+        isScenic: { type: boolean }
+        isPublic:
+          type: boolean
+          description: false = trasa prywatna, widoczna tylko dla właściciela (W19)
+        activityId:
+          type: integer
+          format: int64
+          description: Aktywność użytkownika, z której powstaje trasa
+        geometry:
+          $ref: '#/components/schemas/GeoJsonLineString'
+        photos:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/PhotoInput'
+    RouteUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, maxLength: 5000, nullable: true }
+        activityType:
+          $ref: '#/components/schemas/ActivityType'
+        isTourist: { type: boolean }
+        isScenic: { type: boolean }
+        isPublic: { type: boolean }
+    RoutePage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/RouteSummary'
+    GpsPoint:
+      type: object
+      required: [latitude, longitude, recordedAt, isReconstructed]
+      properties:
+        latitude: { type: number, format: double, minimum: -90, maximum: 90 }
+        longitude: { type: number, format: double, minimum: -180, maximum: 180 }
+        altitude: { type: number, format: double, nullable: true, description: Metry n.p.m. }
+        speed: { type: number, format: double, nullable: true, description: m/s }
+        recordedAt: { type: string, format: date-time }
+        isReconstructed:
+          type: boolean
+          default: false
+          description: true = punkt odtworzony przez AI
+    ActivitySummary:
+      type: object
+      required: [id, type, startTime]
+      properties:
+        id: { type: integer, format: int64 }
+        type:
+          $ref: '#/components/schemas/ActivityType'
+        routeId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Trasa, po której użytkownik szedł; null dla aktywności spontanicznych
+        startTime: { type: string, format: date-time }
+        endTime: { type: string, format: date-time, nullable: true }
+        distance: { type: number, format: double, nullable: true, description: Metry }
+        durationSeconds: { type: integer, nullable: true }
+        avgPace: { type: number, format: double, nullable: true, description: min/km }
+        stepCount: { type: integer, nullable: true }
+    Activity:
+      allOf:
+        - $ref: '#/components/schemas/ActivitySummary'
+        - type: object
+          properties:
+            geometry:
+              $ref: '#/components/schemas/GeoJsonLineString'
+    ActivityCreate:
+      type: object
+      required: [clientId, type, startTime, endTime, points]
+      properties:
+        clientId:
+          type: string
+          format: uuid
+          description: Generowany na telefonie, chroni przed duplikatami przy ponownej wysyłce
+        type:
+          $ref: '#/components/schemas/ActivityType'
+        routeId:
+          type: integer
+          format: int64
+          nullable: true
+        startTime: { type: string, format: date-time }
+        endTime: { type: string, format: date-time }
+        distance: { type: number, format: double, minimum: 0 }
+        durationSeconds: { type: integer, minimum: 0 }
+        avgPace: { type: number, format: double, minimum: 0 }
+        stepCount: { type: integer, minimum: 0 }
+        points:
+          type: array
+          minItems: 2
+          items:
+            $ref: '#/components/schemas/GpsPoint'
+    ActivityPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ActivitySummary'
+    Review:
+      type: object
+      required: [id, routeId, user, rating, photos, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        routeId: { type: integer, format: int64 }
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string, nullable: true }
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Photo'
+        createdAt: { type: string, format: date-time }
+    ReviewCreate:
+      type: object
+      required: [rating]
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string, maxLength: 2000, nullable: true }
+        photos:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/PhotoInput'
+    ReviewPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Review'
+    Poi:
+      type: object
+      required: [id, name, latitude, longitude]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        latitude: { type: number, format: double }
+        longitude: { type: number, format: double }
+        photoUrl: { type: string, format: uri, nullable: true }
+    PoiAdmin:
+      allOf:
+        - $ref: '#/components/schemas/Poi'
+        - type: object
+          required: [status, createdAt]
+          properties:
+            status:
+              $ref: '#/components/schemas/PoiStatus'
+            submittedBy:
+              $ref: '#/components/schemas/UserSummary'
+            rejectionReason: { type: string, nullable: true }
+            createdAt: { type: string, format: date-time }
+    PoiCreate:
+      type: object
+      required: [name, description, latitude, longitude]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, minLength: 1, maxLength: 5000 }
+        latitude: { type: number, format: double, minimum: -90, maximum: 90 }
+        longitude: { type: number, format: double, minimum: -180, maximum: 180 }
+        photo:
+          $ref: '#/components/schemas/PhotoInput'
+    PoiUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, minLength: 1, maxLength: 5000 }
+        latitude: { type: number, format: double, minimum: -90, maximum: 90 }
+        longitude: { type: number, format: double, minimum: -180, maximum: 180 }
+        photo:
+          $ref: '#/components/schemas/PhotoInput'
+    PoiAdminPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PoiAdmin'
+    CollectRequest:
+      allOf:
+        - $ref: '#/components/schemas/LatLng'
+      description: Aktualna pozycja użytkownika
+    PoiCollectionEntry:
+      type: object
+      required: [poi, collectedAt]
+      properties:
+        poi:
+          $ref: '#/components/schemas/Poi'
+        collectedAt: { type: string, format: date-time }
+    RejectRequest:
+      type: object
+      properties:
+        reason: { type: string, maxLength: 500 }
+    AdminUser:
+      allOf:
+        - $ref: '#/components/schemas/Profile'
+        - type: object
+          required: [status]
+          properties:
+            status:
+              $ref: '#/components/schemas/UserStatus'
+    AdminUserPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminUser'
