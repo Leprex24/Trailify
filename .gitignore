@@ -1,0 +1,17 @@
+# Sekrety
+.env
+.env.*
+!.env.example
+
+# Backend (Spring Boot / Gradle)
+backend/build/
+backend/.gradle/
+backend/target/
+backend/out/
+
+# IDE i system
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+*.log
