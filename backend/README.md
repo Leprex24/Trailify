@@ -1,6 +1,7 @@
 # Trailify: backend
 
 Spring Boot 4 (Kotlin, Gradle), PostgreSQL + PostGIS (Supabase), walidacja tokenów JWT z Supabase Auth.
+Dostęp do bazy: `JdbcClient` (czyste SQL), bez Hibernate Spatial na razie.
 
 ## Wymagania
 - JDK 21
@@ -34,15 +35,20 @@ W logu powinno być `Successfully applied 4 migrations` (przy kolejnych startach
 ### Sprawdzenie
 1. Stan aplikacji (bez tokena): `GET http://localhost:8080/actuator/health` → `{"status":"UP"}`
 2. Bez tokena endpoint chroniony zwraca 401:
-   `GET http://localhost:8080/api/v1/dev/whoami` → `{"code":"UNAUTHORIZED",...}`
+   `GET http://localhost:8080/api/v1/me` → `{"code":"UNAUTHORIZED",...}`
 3. Z tokenem:
    - W Supabase: **Authentication → Users → Add user → Create new user** (e-mail, hasło, zaznacz *Auto Confirm User*).
    - Pobierz token (Postman lub curl):
      `POST https://<ID>.supabase.co/auth/v1/token?grant_type=password`
      nagłówki: `apikey: <publishable key>`, `Content-Type: application/json`
      body: `{"email":"...","password":"..."}` → pole `access_token`
-   - `GET http://localhost:8080/api/v1/dev/whoami` z nagłówkiem `Authorization: Bearer <access_token>`
-     → `{"userId":"...","email":"...","role":"authenticated"}`
+   - `GET http://localhost:8080/api/v1/me` z nagłówkiem `Authorization: Bearer <access_token>`
+     → profil z bazy: `{"id":"...","email":"...","displayName":"...","role":"USER","createdAt":"...","stats":{...}}`
+4. Rola i blokada konta (zmiana w SQL Editor w Supabase, działa od następnego żądania):
+   - administrator: `update profile set role = 'ADMIN' where email = 'twoj@email';`
+     (wtedy `/api/v1/admin/...` przestaje zwracać 403)
+   - blokada: `update profile set status = 'BLOCKED' where email = '...';`
+     (każde żądanie z tokenem tego konta zwraca 403 `ACCOUNT_BLOCKED`; cofnięcie: `status = 'ACTIVE'`)
 
 Token ważny jest około godziny, potem pobierz nowy.
 
@@ -59,7 +65,8 @@ w niej dopisać ręcznie (ten sam UUID co `userId` z `whoami`), żeby endpointy 
   bo dwa pliki o tym samym numerze zablokują start aplikacji.
 - Nigdy nie zmieniaj istniejących migracji `V1`–`V4` po ich uruchomieniu (Flyway zapamiętuje sumę kontrolną). Zmiana = nowa migracja.
 - Każda nowa tabela ma mieć `enable row level security` (patrz V2/V3).
-- Endpoint `/api/v1/dev/whoami` jest tymczasowy i znika w tygodniu 2.
+- Rola (`USER`/`ADMIN`) i status konta (`ACTIVE`/`BLOCKED`) pochodzą z tabeli `profile`, nie z tokena.
+  Profil jest wczytywany z bazy przy każdym żądaniu (patrz `ProfileJwtAuthenticationConverter`).
 
 ## Typowe problemy
 | Objaw | Przyczyna |

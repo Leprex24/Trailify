@@ -35,5 +35,6 @@ dependencies {
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.androidx.compose)
     implementation(libs.koin.core.viewmodel)
+    implementation(libs.maplibre.android)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

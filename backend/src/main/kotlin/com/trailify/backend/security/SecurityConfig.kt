@@ -12,12 +12,16 @@ import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.access.AccessDeniedHandler
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter
 
 @Configuration
 class SecurityConfig {
 
     @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
+    fun securityFilterChain(
+        http: HttpSecurity,
+        profileConverter: ProfileJwtAuthenticationConverter,
+    ): SecurityFilterChain {
         http
             // API bezstanowe z tokenem w nagłówku, więc bez sesji i bez CSRF
             .csrf { it.disable() }
@@ -34,16 +38,17 @@ class SecurityConfig {
                         "/api/v1/pois",
                         "/api/v1/pois/*",
                     ).permitAll()
-                    // TODO (tydzień 2): rola ADMIN będzie pochodzić z tabeli profile.
-                    // Do tego czasu nikt nie ma tej roli, więc /admin jest zamknięte.
+                    // Rola ADMIN pochodzi z tabeli profile (ProfileJwtAuthenticationConverter).
                     .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                     .anyRequest().authenticated()
             }
             .oauth2ResourceServer { oauth2 ->
-                oauth2.jwt { }
+                oauth2.jwt { jwt -> jwt.jwtAuthenticationConverter(profileConverter) }
                 oauth2.authenticationEntryPoint(JsonAuthenticationEntryPoint)
                 oauth2.accessDeniedHandler(JsonAccessDeniedHandler)
             }
+            // po sprawdzeniu tokena odrzuca zablokowane konta (403 ACCOUNT_BLOCKED)
+            .addFilterAfter(BlockedAccountFilter(), BearerTokenAuthenticationFilter::class.java)
         return http.build()
     }
 }
