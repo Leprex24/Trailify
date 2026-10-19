@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -18,14 +20,19 @@ import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Profil (W23-W25): dane, statystyki, zebrane punkty, wylogowanie.
- * TODO (Mikołaj): edycja profilu, zebrane punkty (PoiRepository), panel admina dla roli ADMIN.
+ * Edycja konta jest na osobnym ekranie (AccountScreen).
+ * TODO (Mikołaj): zebrane punkty (PoiRepository), panel admina dla roli ADMIN.
  */
 @Composable
 fun ProfileScreen(
+    onOpenAccount: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // Za każdym wejściem na ekran, np. po powrocie z ustawień konta ze zmienioną nazwą.
+    LaunchedEffect(Unit) { viewModel.load() }
 
     when (val s = state) {
         is UiState.Loading -> LoadingBox(modifier)
@@ -40,7 +47,10 @@ fun ProfileScreen(
             Text("Aktywności: ${s.data.stats.activityCount}")
             Text("Trasy: ${s.data.stats.routeCount}")
             Text("Zebrane punkty: ${s.data.stats.collectedPoiCount}")
-            Button(onClick = viewModel::signOut, modifier = Modifier.padding(top = 24.dp)) {
+            OutlinedButton(onClick = onOpenAccount, modifier = Modifier.padding(top = 24.dp)) {
+                Text("Ustawienia konta")
+            }
+            Button(onClick = viewModel::signOut, modifier = Modifier.padding(top = 8.dp)) {
                 Text("Wyloguj")
             }
         }
