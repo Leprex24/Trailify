@@ -10,7 +10,16 @@ object Routes {
 
     // pozostałe ekrany
     const val LOGIN = "login"
+    const val REGISTER = "register"
+    const val PRIVACY_POLICY = "privacy-policy"
+    const val ACCOUNT = "account"
     const val RECORDING = "recording"
+
+    /** Ekrany dostępne bez logowania - wylogowanie nie przerzuca z nich na LOGIN. */
+    val LOGGED_OUT = setOf(LOGIN, REGISTER, PRIVACY_POLICY)
+
+    /** Ekrany logowania i rejestracji - po zalogowaniu przechodzimy z nich na mapę. */
+    val SIGN_IN = setOf(LOGIN, REGISTER)
 
     const val ROUTE_ID_ARG = "routeId"
     const val ROUTE_DETAILS = "route/{$ROUTE_ID_ARG}"

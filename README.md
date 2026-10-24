@@ -46,7 +46,20 @@ TODO
 
 ## Konfiguracja
 Klucze i hasła nie trafiają do repozytorium. Wartości do plików `secrets.properties`
-i `.env` dostajesz od autora projektu. TODO: opisać wymagane zmienne.
+i `.env` dostajesz od autora projektu. TODO: opisać zmienne backendu (`.env`).
+
+### `android/secrets.properties`
+```properties
+SUPABASE_URL=https://<projekt>.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+GOOGLE_WEB_CLIENT_ID=<Web Client ID z Google Cloud>.apps.googleusercontent.com
+```
+- Bez `SUPABASE_URL` lub `SUPABASE_PUBLISHABLE_KEY` logowanie działa na atrapie.
+- Bez `GOOGLE_WEB_CLIENT_ID` przycisk „Zaloguj przez Google” jest ukryty.
+  To ma być **Web** Client ID (nie Android). Klient Android w Google Cloud ma
+  package name `com.trailify.app` i SHA-1 z `gradlew signingReport` (każdy z nas dodaje swój).
+- Po zmianie pliku: **File → Sync Project with Gradle Files**.
+- Klucza `SUPABASE_SECRET_KEY` (secret / service_role) nigdy nie wpisujemy do aplikacji.
 
 ## Organizacja pracy
 - `main` jest chroniony, zmiany wchodzą przez Pull Request z przeglądem drugiej osoby.

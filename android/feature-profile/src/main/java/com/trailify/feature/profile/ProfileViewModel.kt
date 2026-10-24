@@ -20,10 +20,7 @@ class ProfileViewModel(
     private val _state = MutableStateFlow<UiState<Profile>>(UiState.Loading)
     val state: StateFlow<UiState<Profile>> = _state.asStateFlow()
 
-    init {
-        load()
-    }
-
+    /** Wołane przez ProfileScreen przy każdym wejściu na ekran. */
     fun load() {
         viewModelScope.launch {
             _state.value = UiState.Loading
