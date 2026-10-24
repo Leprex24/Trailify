@@ -25,6 +25,9 @@ android {
         buildConfigField("String", "SUPABASE_URL", "\"${secret("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"${secret("SUPABASE_PUBLISHABLE_KEY")}\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${secret("GOOGLE_WEB_CLIENT_ID")}\"")
+        // Adres naszego backendu. Domyślnie localhost (działa przez `adb reverse tcp:8080 tcp:8080`).
+        val apiBaseUrl = secret("API_BASE_URL").ifBlank { "http://localhost:8080/api/v1" }
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
 
     compileOptions {

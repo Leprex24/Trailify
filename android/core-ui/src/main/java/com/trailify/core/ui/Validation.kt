@@ -44,5 +44,8 @@ fun Throwable.toUserMessage(): String = when ((this as? AppException)?.code) {
     AuthErrorCodes.EMAIL_NOT_CONFIRMED -> "Najpierw potwierdź adres e-mail (sprawdź skrzynkę)"
     AuthErrorCodes.NETWORK -> "Brak połączenia z internetem"
     "ACCOUNT_BLOCKED" -> "Konto zostało zablokowane"
+    "UNAUTHORIZED" -> "Sesja wygasła, zaloguj się ponownie"
+    "VALIDATION_ERROR" -> "Niepoprawne dane"
+    "SERVICE_UNAVAILABLE", "UPSTREAM_ERROR" -> "Serwer chwilowo niedostępny, spróbuj ponownie"
     else -> "Coś poszło nie tak, spróbuj ponownie"
 }

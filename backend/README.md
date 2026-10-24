@@ -19,6 +19,9 @@ DB_USER=postgres.xxxxxxxx
 DB_PASSWORD=...
 ```
 
+`SUPABASE_SECRET_KEY` jest potrzebny tylko do `DELETE /api/v1/me` (usuwa konto z Supabase Auth i pliki ze Storage).
+Bez niego ten endpoint zwraca 503, reszta działa. Klucz zostaje tylko na backendzie.
+
 `SUPABASE_JWKS_URL` jest opcjonalne (domyślnie `$SUPABASE_URL/auth/v1/.well-known/jwks.json`).
 
 ## Uruchomienie

@@ -34,5 +34,7 @@ management:
 
 supabase:
   url: ${SUPABASE_URL}
+  # klucz sb_secret_... do operacji administracyjnych (usuwanie kont); tylko backend, nigdy aplikacja
+  secret-key: ${SUPABASE_SECRET_KEY:}
   # domyślnie standardowy adres kluczy publicznych Supabase Auth
   jwks-url: ${SUPABASE_JWKS_URL:${SUPABASE_URL}/auth/v1/.well-known/jwks.json}

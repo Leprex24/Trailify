@@ -1,5 +1,8 @@
 package com.trailify.app.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -10,6 +13,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -105,52 +109,74 @@ fun TrailifyNavHost() {
                 navController = navController,
                 startDestination = Routes.MAP,
                 modifier = Modifier.padding(innerPadding),
+                // Bez animacji przejść: domyślne zanikanie pokazywało mapę przez ekran profilu.
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { ExitTransition.None },
             ) {
                 composable(Routes.DISCOVER) {
-                    DiscoverScreen(onRouteClick = { navController.navigate(Routes.routeDetails(it)) })
+                    ScreenSurface { DiscoverScreen(onRouteClick = { navController.navigate(Routes.routeDetails(it)) }) }
                 }
                 composable(Routes.ROUTES) {
-                    RoutesScreen(onRouteClick = { navController.navigate(Routes.routeDetails(it)) })
+                    ScreenSurface { RoutesScreen(onRouteClick = { navController.navigate(Routes.routeDetails(it)) }) }
                 }
                 composable(Routes.MAP) {
                     MapScreen(onStartRecording = { navController.navigate(Routes.RECORDING) })
                 }
-                composable(Routes.COMMUNITY) { CommunityScreen() }
+                composable(Routes.COMMUNITY) { ScreenSurface { CommunityScreen() } }
                 composable(Routes.PROFILE) {
-                    ProfileScreen(onOpenAccount = { navController.navigate(Routes.ACCOUNT) })
+                    ScreenSurface { ProfileScreen(onOpenAccount = { navController.navigate(Routes.ACCOUNT) }) }
                 }
 
                 composable(Routes.RECORDING) {
-                    RecordingScreen(onClose = { navController.popBackStack() })
+                    ScreenSurface { RecordingScreen(onClose = { navController.popBackStack() }) }
                 }
                 composable(
                     route = Routes.ROUTE_DETAILS,
                     arguments = listOf(navArgument(Routes.ROUTE_ID_ARG) { type = NavType.LongType }),
                 ) { entry ->
-                    RouteDetailsScreen(
-                        routeId = entry.arguments?.getLong(Routes.ROUTE_ID_ARG) ?: 0L,
-                        onBack = { navController.popBackStack() },
-                    )
+                    ScreenSurface {
+                        RouteDetailsScreen(
+                            routeId = entry.arguments?.getLong(Routes.ROUTE_ID_ARG) ?: 0L,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
                 }
                 composable(Routes.LOGIN) {
-                    LoginScreen(onGoToRegister = { navController.navigate(Routes.REGISTER) })
+                    ScreenSurface { LoginScreen(onGoToRegister = { navController.navigate(Routes.REGISTER) }) }
                 }
                 composable(Routes.REGISTER) {
-                    RegisterScreen(
-                        onOpenPrivacyPolicy = { navController.navigate(Routes.PRIVACY_POLICY) },
-                        onBack = { navController.popBackStack() },
-                    )
+                    ScreenSurface {
+                        RegisterScreen(
+                            onOpenPrivacyPolicy = { navController.navigate(Routes.PRIVACY_POLICY) },
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
                 }
                 composable(Routes.PRIVACY_POLICY) {
-                    PrivacyPolicyScreen(onBack = { navController.popBackStack() })
+                    ScreenSurface { PrivacyPolicyScreen(onBack = { navController.popBackStack() }) }
                 }
                 composable(Routes.ACCOUNT) {
-                    AccountScreen(
-                        onOpenPrivacyPolicy = { navController.navigate(Routes.PRIVACY_POLICY) },
-                        onBack = { navController.popBackStack() },
-                    )
+                    ScreenSurface {
+                        AccountScreen(
+                            onOpenPrivacyPolicy = { navController.navigate(Routes.PRIVACY_POLICY) },
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+/**
+ * Nieprzezroczyste tło dla każdego ekranu poza mapą. Bez niego w trakcie przejścia
+ * przez ekran widać mapę, bo ekrany same nie rysują tła.
+ */
+@Composable
+private fun ScreenSurface(content: @Composable () -> Unit) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        content()
     }
 }

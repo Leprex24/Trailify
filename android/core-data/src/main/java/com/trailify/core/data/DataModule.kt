@@ -1,6 +1,7 @@
 package com.trailify.core.data
 
 import com.trailify.core.data.mock.MockAccountAuthRepository
+import com.trailify.core.data.api.ApiProfileRepository
 import com.trailify.core.data.mock.MockActivityRepository
 import com.trailify.core.data.mock.MockAdminRepository
 import com.trailify.core.data.mock.MockAuthRepository
@@ -34,7 +35,7 @@ val isSupabaseConfigured: Boolean =
 /**
  * Wiąże interfejsy repozytoriów z implementacjami.
  * Teraz wszędzie atrapy, poza warstwami mapy, które są prawdziwe (OpenStreetMap przez Overpass),
- * i logowaniem, które jest prawdziwe (Supabase Auth), gdy w secrets.properties są klucze.
+ * oraz logowaniem i profilem (/me), które są prawdziwe (Supabase Auth + nasz backend), gdy w secrets.properties są klucze.
  */
 val dataModule = module {
     if (isSupabaseConfigured) {
@@ -56,11 +57,12 @@ val dataModule = module {
         }
         single<AuthRepository> { get<SupabaseAuthRepository>() }
         single<AccountAuthRepository> { get<SupabaseAuthRepository>() }
+        single<ProfileRepository> { ApiProfileRepository(supabase = get(), baseUrl = BuildConfig.API_BASE_URL) }
     } else {
         single<AuthRepository> { MockAuthRepository() }
         single<AccountAuthRepository> { MockAccountAuthRepository() }
+        single<ProfileRepository> { MockProfileRepository() }
     }
-    single<ProfileRepository> { MockProfileRepository() }
     single<RouteRepository> { MockRouteRepository() }
     single<ActivityRepository> { MockActivityRepository() }
     single<ReviewRepository> { MockReviewRepository() }

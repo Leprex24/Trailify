@@ -3,6 +3,7 @@ package com.trailify.backend.account
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
+import java.sql.Types
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -53,6 +54,29 @@ class ProfileRepository(private val jdbc: JdbcClient) : ProfileLookup {
             .query(profileMapper)
             .optional()
             .orElse(null)
+
+    /** Zmienia tylko te pola, które przyszły w żądaniu (patrz [ProfileUpdate]). */
+    fun update(id: UUID, update: ProfileUpdate) {
+        val sets = mutableListOf<String>()
+        if (update.displayName != null) sets.add("display_name = :displayName")
+        if (update.changeAvatar) sets.add("avatar_url = :avatarUrl")
+        if (sets.isEmpty()) return
+        jdbc.sql("update profile set ${sets.joinToString()} where id = :id")
+            .param("id", id)
+            .param("displayName", update.displayName, Types.VARCHAR)
+            .param("avatarUrl", update.avatarUrl, Types.VARCHAR)
+            .update()
+    }
+
+    /**
+     * Punkty zgłoszone przez użytkownika i jeszcze niezatwierdzone (oczekujące, odrzucone) znikają razem z kontem.
+     * Zatwierdzone zostają anonimowo (klucz obcy ma on delete set null, patrz V3).
+     */
+    fun deleteUnpublishedPoiSubmissions(userId: UUID) {
+        jdbc.sql("delete from point_of_interest where submitted_by = :id and status in ('PENDING', 'REJECTED')")
+            .param("id", userId)
+            .update()
+    }
 
     fun stats(userId: UUID): ProfileStatsRecord =
         jdbc.sql(

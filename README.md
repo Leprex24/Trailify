@@ -53,11 +53,17 @@ i `.env` dostajesz od autora projektu. TODO: opisać zmienne backendu (`.env`).
 SUPABASE_URL=https://<projekt>.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 GOOGLE_WEB_CLIENT_ID=<Web Client ID z Google Cloud>.apps.googleusercontent.com
+# opcjonalnie, domyślnie http://localhost:8080/api/v1
+API_BASE_URL=http://localhost:8080/api/v1
 ```
 - Bez `SUPABASE_URL` lub `SUPABASE_PUBLISHABLE_KEY` logowanie działa na atrapie.
 - Bez `GOOGLE_WEB_CLIENT_ID` przycisk „Zaloguj przez Google” jest ukryty.
   To ma być **Web** Client ID (nie Android). Klient Android w Google Cloud ma
   package name `com.trailify.app` i SHA-1 z `gradlew signingReport` (każdy z nas dodaje swój).
+- Profil (`/me`) aplikacja pobiera z backendu pod `API_BASE_URL` (tylko gdy są klucze Supabase).
+  Backend na komputerze: uruchom `./gradlew bootRun` w `backend/`, a przy telefonie podpiętym
+  kablem (lub emulatorze) wykonaj raz po podpięciu: `adb reverse tcp:8080 tcp:8080`.
+  Bez działającego backendu ekrany Profil/Konto pokażą błąd połączenia.
 - Po zmianie pliku: **File → Sync Project with Gradle Files**.
 - Klucza `SUPABASE_SECRET_KEY` (secret / service_role) nigdy nie wpisujemy do aplikacji.
 
