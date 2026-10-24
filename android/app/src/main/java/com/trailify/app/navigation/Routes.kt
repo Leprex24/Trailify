@@ -13,7 +13,6 @@ object Routes {
     const val REGISTER = "register"
     const val PRIVACY_POLICY = "privacy-policy"
     const val ACCOUNT = "account"
-    const val RECORDING = "recording"
 
     /** Ekrany dostępne bez logowania - wylogowanie nie przerzuca z nich na LOGIN. */
     val LOGGED_OUT = setOf(LOGIN, REGISTER, PRIVACY_POLICY)

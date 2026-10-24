@@ -39,7 +39,6 @@ import com.trailify.feature.discover.RouteDetailsScreen
 import com.trailify.feature.map.MapScreen
 import com.trailify.feature.profile.AccountScreen
 import com.trailify.feature.profile.ProfileScreen
-import com.trailify.feature.recording.RecordingScreen
 import com.trailify.feature.routes.RoutesScreen
 import org.koin.compose.koinInject
 import androidx.compose.material3.MaterialTheme
@@ -122,16 +121,13 @@ fun TrailifyNavHost() {
                     ScreenSurface { RoutesScreen(onRouteClick = { navController.navigate(Routes.routeDetails(it)) }) }
                 }
                 composable(Routes.MAP) {
-                    MapScreen(onStartRecording = { navController.navigate(Routes.RECORDING) })
+                    MapScreen()
                 }
                 composable(Routes.COMMUNITY) { ScreenSurface { CommunityScreen() } }
                 composable(Routes.PROFILE) {
                     ScreenSurface { ProfileScreen(onOpenAccount = { navController.navigate(Routes.ACCOUNT) }) }
                 }
 
-                composable(Routes.RECORDING) {
-                    ScreenSurface { RecordingScreen(onClose = { navController.popBackStack() }) }
-                }
                 composable(
                     route = Routes.ROUTE_DETAILS,
                     arguments = listOf(navArgument(Routes.ROUTE_ID_ARG) { type = NavType.LongType }),

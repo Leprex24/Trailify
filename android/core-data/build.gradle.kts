@@ -43,6 +43,10 @@ dependencies {
     implementation(project(":core-domain"))
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.android)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.kotlinx.coroutines.android)
+    // GPS dla nagrywania aktywności
+    implementation(libs.play.services.location)
 
     // Supabase Auth (logowanie e-mail i Google)
     implementation(platform(libs.supabase.bom))

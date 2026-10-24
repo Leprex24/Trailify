@@ -6,6 +6,9 @@ import com.trailify.core.domain.model.BoundingBox
 import com.trailify.core.domain.model.LatLng
 import com.trailify.core.domain.model.MapLayerType
 import com.trailify.core.domain.repository.MapLayerRepository
+import com.trailify.core.domain.repository.RecordingController
+import com.trailify.core.domain.repository.UserLocationSource
+import com.trailify.core.domain.model.ActivityType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -40,7 +43,47 @@ data class MapUiState(
  *  - powyżej warstwa jest widoczna, a brakujące kafelki dociągają się w tle,
  *  - pobrane kafelki są pamiętane, więc powrót w to samo miejsce jest natychmiastowy.
  */
-class MapViewModel(private val layers: MapLayerRepository) : ViewModel() {
+class MapViewModel(
+    private val layers: MapLayerRepository,
+    private val recording: RecordingController,
+    private val location: UserLocationSource,
+) : ViewModel() {
+
+    // --- pozycja użytkownika i nagrywanie (ekran START jest też ekranem nagrywania) ---
+
+    /** Niebieska kropka: pozycja użytkownika, null dopóki nie ma sygnału GPS. */
+    val userLocation: StateFlow<LatLng?> = location.location
+
+    val recordingState = recording.state
+
+    /** Czy kamera podąża za pozycją. Przesunięcie mapy palcem to wyłącza, przycisk "Moja pozycja" włącza. */
+    var following: Boolean = true
+
+    /** Czy mapa już raz wycentrowała się na użytkowniku (robi to tylko przy pierwszym sygnale GPS). */
+    var centeredOnUser: Boolean = false
+
+    /** Czy już pytaliśmy o zgody (żeby nie nagabywać przy każdym wejściu na mapę). */
+    var askedForLocation: Boolean = false
+    var askedForNotifications: Boolean = false
+    var askedForActivityRecognition: Boolean = false
+
+    /** Ostatni widok mapy, żeby po powrocie z innej zakładki mapa nie skakała do Lublina. */
+    var lastCameraTarget: LatLng? = null
+    var lastCameraZoom: Double = 0.0
+
+    fun setWatching(watching: Boolean) = location.setWatching(watching)
+
+    fun startRecording(type: ActivityType) {
+        following = true
+        recording.start(type)
+    }
+
+    fun pauseRecording() = recording.pause()
+    fun resumeRecording() = recording.resume()
+    fun stopRecording() = recording.stop()
+    fun discardRecording() = recording.discard()
+
+    // --- warstwy mapy ---
 
     private val _state = MutableStateFlow(MapUiState())
     val state: StateFlow<MapUiState> = _state.asStateFlow()

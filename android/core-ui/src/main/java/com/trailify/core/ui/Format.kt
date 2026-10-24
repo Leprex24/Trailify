@@ -24,3 +24,25 @@ fun ActivityType.label(): String = when (this) {
     ActivityType.RUNNING -> "Bieganie"
     ActivityType.WALKING -> "Spacer"
 }
+
+/** Zegar nagrywania: 75 -> "01:15", 3725 -> "1:02:05" */
+fun formatClock(seconds: Long): String {
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    val s = seconds % 60
+    return if (h > 0) String.format(PL, "%d:%02d:%02d", h, m, s) else String.format(PL, "%02d:%02d", m, s)
+}
+
+/** Dystans z dwoma miejscami po przecinku, do licznika na żywo: 1250.0 -> "1,25 km" */
+fun formatDistanceLive(meters: Double): String = String.format(PL, "%.2f km", meters / 1000)
+
+/** 5.5 -> "5:30 /km", null -> "-" */
+fun formatPace(minPerKm: Double?): String {
+    if (minPerKm == null) return "-"
+    val total = Math.round(minPerKm * 60).toInt()
+    return String.format(PL, "%d:%02d /km", total / 60, total % 60)
+}
+
+/** 5.0 m/s -> "18,0 km/h", null -> "-" */
+fun formatSpeed(mps: Double?): String =
+    if (mps == null) "-" else String.format(PL, "%.1f km/h", mps * 3.6)

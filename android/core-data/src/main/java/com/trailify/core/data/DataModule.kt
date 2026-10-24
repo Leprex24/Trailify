@@ -10,6 +10,8 @@ import com.trailify.core.data.mock.MockProfileRepository
 import com.trailify.core.data.mock.MockReviewRepository
 import com.trailify.core.data.mock.MockRouteRepository
 import com.trailify.core.data.overpass.OverpassMapLayerRepository
+import com.trailify.core.data.recording.FusedLocationSource
+import com.trailify.core.data.recording.RecordingStore
 import com.trailify.core.data.supabase.SupabaseAuthRepository
 import com.trailify.core.domain.repository.AccountAuthRepository
 import com.trailify.core.domain.repository.ActivityRepository
@@ -18,8 +20,10 @@ import com.trailify.core.domain.repository.AuthRepository
 import com.trailify.core.domain.repository.MapLayerRepository
 import com.trailify.core.domain.repository.PoiRepository
 import com.trailify.core.domain.repository.ProfileRepository
+import com.trailify.core.domain.repository.RecordingController
 import com.trailify.core.domain.repository.ReviewRepository
 import com.trailify.core.domain.repository.RouteRepository
+import com.trailify.core.domain.repository.UserLocationSource
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import kotlinx.coroutines.CoroutineScope
@@ -68,5 +72,9 @@ val dataModule = module {
     single<ReviewRepository> { MockReviewRepository() }
     single<PoiRepository> { MockPoiRepository() }
     single<AdminRepository> { MockAdminRepository() }
+    single { FusedLocationSource(androidContext()) }
+    single<UserLocationSource> { get<FusedLocationSource>() }
+    single { RecordingStore(androidContext()) }
+    single<RecordingController> { get<RecordingStore>() }
     single<MapLayerRepository> { OverpassMapLayerRepository(androidContext().cacheDir) }
 }
