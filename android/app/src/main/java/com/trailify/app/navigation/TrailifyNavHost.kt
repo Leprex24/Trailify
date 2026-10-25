@@ -140,6 +140,13 @@ fun TrailifyNavHost() {
                         RouteDetailsScreen(
                             routeId = entry.arguments?.getLong(Routes.ROUTE_ID_ARG) ?: 0L,
                             onBack = { navController.popBackStack() },
+                            onFollowRoute = {
+                                // wracamy na START (pierwszy ekran stosu), mapa pokaże wybraną trasę
+                                navController.navigate(Routes.MAP) {
+                                    popUpTo(Routes.MAP)
+                                    launchSingleTop = true
+                                }
+                            },
                         )
                     }
                 }

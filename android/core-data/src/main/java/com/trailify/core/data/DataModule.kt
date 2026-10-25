@@ -4,6 +4,14 @@ import com.trailify.core.data.mock.MockAccountAuthRepository
 import com.trailify.core.data.api.ApiActivityRepository
 import com.trailify.core.data.api.ApiClient
 import com.trailify.core.data.api.ApiProfileRepository
+import com.trailify.core.data.api.ApiRoutePlanner
+import com.trailify.core.data.api.ApiRouteRepository
+import com.trailify.core.data.mock.MockPhotoUploader
+import com.trailify.core.data.mock.MockRoutePlanner
+import com.trailify.core.data.supabase.SupabasePhotoUploader
+import com.trailify.core.domain.repository.PhotoUploader
+import com.trailify.core.domain.repository.RouteFollowController
+import com.trailify.core.domain.repository.RoutePlanner
 import com.trailify.core.data.mock.MockActivityRepository
 import com.trailify.core.data.mock.MockAdminRepository
 import com.trailify.core.data.mock.MockAuthRepository
@@ -66,13 +74,25 @@ val dataModule = module {
         single { ApiClient(supabase = get(), baseUrl = BuildConfig.API_BASE_URL) }
         single<ProfileRepository> { ApiProfileRepository(get()) }
         single<ActivityRepository> { ApiActivityRepository(get()) }
+        single<RoutePlanner> { ApiRoutePlanner(get()) }
+        single<RouteRepository> { ApiRouteRepository(get()) }
+        single<PhotoUploader> {
+            SupabasePhotoUploader(
+                context = androidContext(),
+                supabase = get(),
+                supabaseUrl = BuildConfig.SUPABASE_URL,
+                publishableKey = BuildConfig.SUPABASE_PUBLISHABLE_KEY,
+            )
+        }
     } else {
         single<AuthRepository> { MockAuthRepository() }
         single<AccountAuthRepository> { MockAccountAuthRepository() }
         single<ProfileRepository> { MockProfileRepository() }
         single<ActivityRepository> { MockActivityRepository() }
+        single<RoutePlanner> { MockRoutePlanner() }
+        single<RouteRepository> { MockRouteRepository() }
+        single<PhotoUploader> { MockPhotoUploader() }
     }
-    single<RouteRepository> { MockRouteRepository() }
     single<ReviewRepository> { MockReviewRepository() }
     single<PoiRepository> { MockPoiRepository() }
     single<AdminRepository> { MockAdminRepository() }
@@ -80,5 +100,6 @@ val dataModule = module {
     single<UserLocationSource> { get<FusedLocationSource>() }
     single { RecordingStore(androidContext()) }
     single<RecordingController> { get<RecordingStore>() }
+    single<RouteFollowController> { InMemoryRouteFollowController() }
     single<MapLayerRepository> { OverpassMapLayerRepository(androidContext().cacheDir) }
 }

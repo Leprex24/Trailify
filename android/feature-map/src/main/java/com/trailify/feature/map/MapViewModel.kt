@@ -5,6 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.trailify.core.domain.model.BoundingBox
 import com.trailify.core.domain.model.LatLng
 import com.trailify.core.domain.model.MapLayerType
+import com.trailify.core.domain.model.PlannedRoute
+import com.trailify.core.domain.navigation.routeProgress
+import com.trailify.core.domain.repository.FollowRequest
+import com.trailify.core.domain.repository.MAX_PLAN_POINTS
+import com.trailify.core.domain.repository.RouteFollowController
+import com.trailify.core.domain.repository.RoutePlanner
+import com.trailify.core.ui.toUserMessage
 import com.trailify.core.domain.repository.MapLayerRepository
 import com.trailify.core.domain.repository.RecordingController
 import com.trailify.core.domain.repository.UserLocationSource
@@ -18,6 +25,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
@@ -35,6 +43,29 @@ data class MapUiState(
     val isRetrying: Boolean get() = retrying.isNotEmpty()
 }
 
+/** Planowanie trasy: punkty zaznaczone na mapie i trasa wyznaczona po drogach między nimi. */
+data class PlanUiState(
+    /** Tryb planowania: dotknięcie mapy dodaje punkt. */
+    val editing: Boolean = false,
+    val waypoints: List<LatLng> = emptyList(),
+    val route: PlannedRoute? = null,
+    val loading: Boolean = false,
+    val error: String? = null,
+    /** Ustawione, gdy trasa pochodzi z opublikowanej trasy społeczności ("Przejdź tę trasę"). */
+    val routeId: Long? = null,
+    val routeName: String? = null,
+    val routeType: ActivityType? = null,
+)
+
+/** Postęp na zaplanowanej trasie w trakcie nagrywania. */
+data class NavigationUiState(
+    val remainingMeters: Double,
+    val offRouteMeters: Double,
+    /** Użytkownik jest za daleko od trasy (kilka kolejnych odczytów GPS pod rząd). */
+    val offRoute: Boolean,
+    val arrived: Boolean,
+)
+
 /**
  * Pilnuje, które warstwy są włączone, i ładuje brakujące kafelki dla widocznego fragmentu mapy.
  *
@@ -47,6 +78,8 @@ class MapViewModel(
     private val layers: MapLayerRepository,
     private val recording: RecordingController,
     private val location: UserLocationSource,
+    private val planner: RoutePlanner,
+    private val follow: RouteFollowController,
 ) : ViewModel() {
 
     // --- pozycja użytkownika i nagrywanie (ekran START jest też ekranem nagrywania) ---
@@ -75,13 +108,162 @@ class MapViewModel(
 
     fun startRecording(type: ActivityType) {
         following = true
-        recording.start(type)
+        recording.start(type, _plan.value.routeId)
     }
 
     fun pauseRecording() = recording.pause()
     fun resumeRecording() = recording.resume()
-    fun stopRecording() = recording.stop()
-    fun discardRecording() = recording.discard()
+
+    fun stopRecording() {
+        recording.stop()
+        clearPlan()
+    }
+
+    fun discardRecording() {
+        recording.discard()
+        clearPlan()
+    }
+
+    // --- planowanie trasy ---
+
+    private val _plan = MutableStateFlow(PlanUiState())
+    val plan: StateFlow<PlanUiState> = _plan.asStateFlow()
+    private var planType = ActivityType.WALKING
+    private var planJob: Job? = null
+
+    /** Id trasy, na którą kamera została już dopasowana (żeby nie skakała przy każdym powrocie na mapę). */
+    var fittedRouteId: Long? = null
+
+    /** Opublikowana trasa wybrana na ekranie szczegółów: pokazujemy ją na mapie i czekamy na Start. */
+    private fun applyFollow(request: FollowRequest) {
+        if (recording.state.value.isActive) return // w trakcie nagrywania nie podmieniamy trasy
+        planJob?.cancel()
+        planType = request.activityType
+        _plan.value = PlanUiState(
+            route = request.route,
+            routeId = request.routeId,
+            routeName = request.name,
+            routeType = request.activityType,
+        )
+        fittedRouteId = null
+        centeredOnUser = true // kamera ma pokazać trasę, nie skakać do użytkownika
+    }
+
+    fun startPlanning(type: ActivityType) {
+        planType = type
+        _plan.update { it.copy(editing = true) }
+    }
+
+    /** Zmiana rodzaju aktywności przelicza trasę (rower i pieszo mają inne drogi). */
+    fun onPlanTypeChanged(type: ActivityType) {
+        if (type == planType) return
+        planType = type
+        replan()
+    }
+
+    fun addWaypoint(point: LatLng) {
+        if (!_plan.value.editing) return
+        if (_plan.value.waypoints.size >= MAX_PLAN_POINTS) {
+            _plan.update { it.copy(error = "Maksymalnie $MAX_PLAN_POINTS punktów na trasie") }
+            return
+        }
+        _plan.update { it.copy(waypoints = it.waypoints + point) }
+        replan()
+    }
+
+    fun undoWaypoint() {
+        _plan.update { it.copy(waypoints = it.waypoints.dropLast(1)) }
+        replan()
+    }
+
+    /** Usuwa punkty, ale zostaje w trybie planowania. */
+    fun clearWaypoints() {
+        planJob?.cancel()
+        _plan.update { PlanUiState(editing = true) }
+    }
+
+    /** Wychodzi z planowania i usuwa plan z mapy. */
+    fun clearPlan() {
+        planJob?.cancel()
+        _plan.value = PlanUiState()
+    }
+
+    /** Nagrywanie ruszyło: kończymy edycję, ale zaplanowana linia zostaje na mapie. */
+    fun finishEditing() {
+        _plan.update { it.copy(editing = false) }
+    }
+
+    // --- nawigacja po zaplanowanej trasie ---
+
+    private val _navigation = MutableStateFlow<NavigationUiState?>(null)
+
+    /** null, gdy nagrywanie nie idzie po zaplanowanej trasie. */
+    val navigation: StateFlow<NavigationUiState?> = _navigation.asStateFlow()
+
+    /** Najdalszy punkt trasy, do którego użytkownik doszedł. Postęp nie cofa się (ważne przy trasie tam i z powrotem). */
+    private var navAlong = 0.0
+    private var offRouteReadings = 0
+
+    init {
+        viewModelScope.launch {
+            follow.request.collect { request ->
+                if (request != null) {
+                    applyFollow(request)
+                    follow.consume()
+                }
+            }
+        }
+        viewModelScope.launch {
+            combine(location.location, _plan, recording.state) { position, plan, rec ->
+                Triple(position, plan, rec.isActive)
+            }.collect { (position, plan, active) ->
+                updateNavigation(position, plan, active)
+            }
+        }
+    }
+
+    private fun updateNavigation(position: LatLng?, plan: PlanUiState, active: Boolean) {
+        val route = plan.route
+        if (!active || plan.editing || route == null) {
+            navAlong = 0.0
+            offRouteReadings = 0
+            _navigation.value = null
+            return
+        }
+        val here = position ?: return
+        val progress = routeProgress(route.geometry, here, minAlongMeters = navAlong - NAV_BACK_SLACK_M) ?: return
+        val onRoute = progress.offRouteMeters <= OFF_ROUTE_METERS
+        // Poza trasą nie przesuwamy postępu: najbliższy punkt mógłby być zupełnie gdzie indziej.
+        if (onRoute) navAlong = maxOf(navAlong, progress.alongMeters)
+        offRouteReadings = if (onRoute) 0 else offRouteReadings + 1
+        val remaining = (progress.totalMeters - navAlong).coerceAtLeast(0.0)
+        _navigation.value = NavigationUiState(
+            remainingMeters = remaining,
+            offRouteMeters = progress.offRouteMeters,
+            offRoute = offRouteReadings >= OFF_ROUTE_READINGS,
+            arrived = remaining <= ARRIVED_METERS,
+        )
+    }
+
+    private fun replan() {
+        planJob?.cancel()
+        val points = _plan.value.waypoints
+        if (points.size < 2) {
+            _plan.update { it.copy(route = null, loading = false, error = null) }
+            return
+        }
+        _plan.update { it.copy(loading = true, error = null) }
+        planJob = viewModelScope.launch {
+            try {
+                val route = planner.plan(planType, points)
+                _plan.update { it.copy(route = route, loading = false) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _plan.update { it.copy(route = null, loading = false, error = e.toUserMessage()) }
+            }
+        }
+    }
 
     // --- warstwy mapy ---
 
@@ -244,6 +426,10 @@ class MapViewModel(
 
     private companion object {
         const val DEBOUNCE_MS = 250L
+        const val OFF_ROUTE_METERS = 50.0
+        const val OFF_ROUTE_READINGS = 3
+        const val NAV_BACK_SLACK_M = 100.0
+        const val ARRIVED_METERS = 30.0
         const val PREFETCH_FRACTION = 0.3
         const val MAX_TILES = 30
         const val MAX_DISPLAYED_TILES = 200

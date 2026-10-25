@@ -19,6 +19,7 @@ import com.trailify.core.ui.LoadingBox
 import com.trailify.core.ui.RouteCard
 import com.trailify.core.ui.UiState
 import org.koin.compose.viewmodel.koinViewModel
+import androidx.lifecycle.compose.LifecycleStartEffect
 
 /** Zakładka Odkrywaj: rekomendowane trasy, wyszukiwanie (W2-W4). */
 @Composable
@@ -28,6 +29,10 @@ fun DiscoverScreen(
     viewModel: DiscoverViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LifecycleStartEffect(Unit) {
+        viewModel.load()
+        onStopOrDispose {  }
+    }
     Column(modifier = modifier) {
         Text(
             text = "Odkrywaj",

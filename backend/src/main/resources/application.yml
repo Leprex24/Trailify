@@ -38,3 +38,7 @@ supabase:
   secret-key: ${SUPABASE_SECRET_KEY:}
   # domyślnie standardowy adres kluczy publicznych Supabase Auth
   jwks-url: ${SUPABASE_JWKS_URL:${SUPABASE_URL}/auth/v1/.well-known/jwks.json}
+
+routing:
+  # silnik tras (docker compose up -d graphhopper); aplikacja nigdy nie łączy się z nim bezpośrednio
+  graphhopper-url: ${GRAPHHOPPER_URL:http://localhost:8989}

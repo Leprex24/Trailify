@@ -17,6 +17,7 @@ internal class SavedRecording(
     val elapsedMs: Long,
     val distanceMeters: Double,
     val steps: Int?,
+    val routeId: Long?,
     val points: List<TrackPoint>,
 )
 
@@ -41,7 +42,8 @@ internal class RecordingDatabase(context: Context) : SQLiteOpenHelper(context, "
                 finished_at integer,
                 elapsed_ms integer not null,
                 distance real not null,
-                steps integer
+                steps integer,
+                route_id integer
             )
             """.trimIndent(),
         )
@@ -59,12 +61,15 @@ internal class RecordingDatabase(context: Context) : SQLiteOpenHelper(context, "
         )
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        // wersja 2: id opublikowanej trasy, którą użytkownik przechodzi
+        if (oldVersion < 2) db.execSQL("alter table session add column route_id integer")
+    }
 
     fun load(): SavedRecording? {
         val db = readableDatabase
         val session = db.rawQuery(
-            "select client_id, type, status, started_at, finished_at, elapsed_ms, distance, steps from session where id = 1",
+            "select client_id, type, status, started_at, finished_at, elapsed_ms, distance, steps, route_id from session where id = 1",
             null,
         ).use { c ->
             if (!c.moveToFirst()) return null
@@ -77,6 +82,7 @@ internal class RecordingDatabase(context: Context) : SQLiteOpenHelper(context, "
                 c.getLong(5),
                 c.getDouble(6),
                 if (c.isNull(7)) null else c.getInt(7),
+                if (c.isNull(8)) null else c.getLong(8),
             )
         }
         val points = ArrayList<TrackPoint>()
@@ -102,12 +108,13 @@ internal class RecordingDatabase(context: Context) : SQLiteOpenHelper(context, "
             elapsedMs = session[5] as Long,
             distanceMeters = session[6] as Double,
             steps = session[7] as Int?,
+            routeId = session[8] as Long?,
             points = points,
         )
     }
 
     /** Zaczyna nowe nagranie (kasuje poprzednie). */
-    fun begin(clientId: String, type: String, startedAtMs: Long) {
+    fun begin(clientId: String, type: String, startedAtMs: Long, routeId: Long?) {
         val db = writableDatabase
         db.beginTransaction()
         try {
@@ -124,6 +131,7 @@ internal class RecordingDatabase(context: Context) : SQLiteOpenHelper(context, "
                     put("started_at", startedAtMs)
                     put("elapsed_ms", 0L)
                     put("distance", 0.0)
+                    if (routeId != null) put("route_id", routeId)
                 },
             )
             db.setTransactionSuccessful()
@@ -174,6 +182,6 @@ internal class RecordingDatabase(context: Context) : SQLiteOpenHelper(context, "
     }
 
     private companion object {
-        const val VERSION = 1
+        const val VERSION = 2
     }
 }

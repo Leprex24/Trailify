@@ -44,6 +44,12 @@ class ActivityDraftFactoryTest {
     }
 
     @Test
+    fun `przechodzenie opublikowanej trasy zapisuje jej id`() {
+        assertEquals(42L, finished().copy(routeId = 42).toActivityDraft()!!.routeId)
+        assertNull(finished().toActivityDraft()!!.routeId)
+    }
+
+    @Test
     fun `trwajace nagranie nie nadaje sie do zapisu`() {
         assertNull(finished().copy(status = RecordingStatus.RECORDING).toActivityDraft())
     }

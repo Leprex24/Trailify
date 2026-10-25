@@ -86,11 +86,12 @@ class RecordingStore(private val context: Context) : RecordingController {
             },
             clientId = saved.clientId,
             restored = wasActive,
+            routeId = saved.routeId,
         )
         if (wasActive) persistSession()
     }
 
-    override fun start(type: ActivityType) {
+    override fun start(type: ActivityType, routeId: Long?) {
         if (_state.value.isActive) return
         recorder = TrackRecorder()
         elapsedMs = 0
@@ -103,8 +104,9 @@ class RecordingStore(private val context: Context) : RecordingController {
             type = type,
             startedAt = startedAt,
             clientId = clientId,
+            routeId = routeId,
         )
-        disk.execute { database.begin(clientId, type.name, startedAt.toEpochMilli()) }
+        disk.execute { database.begin(clientId, type.name, startedAt.toEpochMilli(), routeId) }
         if (!ensureServiceRunning()) {
             _state.value = RecordingState(type = type, error = RecordingError.START_FAILED)
             disk.execute { database.clear() }

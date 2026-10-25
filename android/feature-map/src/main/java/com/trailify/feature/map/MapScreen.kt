@@ -48,12 +48,14 @@ import com.trailify.core.domain.model.ActivityType
 import com.trailify.core.domain.model.BoundingBox
 import com.trailify.core.domain.model.LatLng as DomainLatLng
 import com.trailify.core.domain.model.MapLayerType
+import com.trailify.core.domain.model.RecordingStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koin.compose.viewmodel.koinViewModel
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.LineLayer
@@ -110,8 +112,8 @@ private fun hasFineLocation(context: android.content.Context) =
 private const val FOLLOW_ZOOM = 15.0
 
 /**
- * Zakładka START: mapa z warstwami (W1), niebieską kropką z pozycją użytkownika
- * i nagrywaniem aktywności (W10-W15) w panelu na dole. Planowanie trasy dojdzie w tygodniu 5.
+ * Zakładka START: mapa z warstwami (W1), niebieską kropką z pozycją użytkownika,
+ * planowaniem trasy po punktach (W7-W8) i nagrywaniem aktywności (W10-W15) w panelu na dole.
  */
 @Composable
 fun MapScreen(
@@ -124,6 +126,8 @@ fun MapScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val recording by viewModel.recordingState.collectAsStateWithLifecycle()
     val userLocation by viewModel.userLocation.collectAsStateWithLifecycle()
+    val plan by viewModel.plan.collectAsStateWithLifecycle()
+    val navigation by viewModel.navigation.collectAsStateWithLifecycle()
     var style by remember { mutableStateOf<Style?>(null) }
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
 
@@ -181,6 +185,42 @@ fun MapScreen(
         loadedStyle.getSourceAs<GeoJsonSource>(TRACK_SOURCE)?.setGeoJson(json)
     }
 
+    // Fioletowa linia zaplanowanej trasy; kropki punktów tylko w trybie planowania.
+    val planRoute = plan.route
+    val planWaypoints = plan.waypoints
+    val planEditing = plan.editing
+    LaunchedEffect(style, planRoute) {
+        val loadedStyle = style ?: return@LaunchedEffect
+        val json = withContext(Dispatchers.Default) { planLineJson(planRoute?.geometry.orEmpty()) }
+        loadedStyle.getSourceAs<GeoJsonSource>(PLAN_SOURCE)?.setGeoJson(json)
+    }
+    LaunchedEffect(style, planWaypoints, planEditing) {
+        val loadedStyle = style ?: return@LaunchedEffect
+        val json = planPointsJson(if (planEditing) planWaypoints else emptyList())
+        loadedStyle.getSourceAs<GeoJsonSource>(PLAN_POINTS_SOURCE)?.setGeoJson(json)
+    }
+    // Wybrana trasa społeczności: rodzaj aktywności z trasy i kamera na jej całość (raz na trasę).
+    val followedRouteId = plan.routeId
+    val followedType = plan.routeType
+    LaunchedEffect(followedRouteId) {
+        if (followedType != null) selectedType = followedType
+    }
+    LaunchedEffect(map, followedRouteId, planRoute) {
+        val googleMap = map ?: return@LaunchedEffect
+        val geometry = planRoute?.geometry ?: return@LaunchedEffect
+        if (followedRouteId == null || viewModel.fittedRouteId == followedRouteId || geometry.size < 2) return@LaunchedEffect
+        viewModel.fittedRouteId = followedRouteId
+        viewModel.following = false
+        runCatching {
+            val bounds = LatLngBounds.Builder().includes(geometry.map { LatLng(it.latitude, it.longitude) }).build()
+            googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 120))
+        }
+    }
+    // Nagrywanie ruszyło (dopiero wtedy, bo start może się nie udać): koniec edycji planu.
+    LaunchedEffect(recording.isActive) {
+        if (recording.isActive) viewModel.finishEditing()
+    }
+
     // Niebieska kropka + kamera: raz wycentruj na użytkowniku, w trakcie nagrywania podążaj za nim.
     val recordingActive = recording.isActive
     LaunchedEffect(style, map, userLocation, recordingActive) {
@@ -226,8 +266,12 @@ fun MapScreen(
     }
 
     val actions = RecordingActions(
-        onTypeSelected = { selectedType = it },
+        onTypeSelected = {
+            selectedType = it
+            viewModel.onPlanTypeChanged(it)
+        },
         onStart = ::onStartClicked,
+        onPlan = { viewModel.startPlanning(selectedType) },
         onPause = viewModel::pauseRecording,
         onResume = viewModel::resumeRecording,
         onStop = {
@@ -241,6 +285,15 @@ fun MapScreen(
                 Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
             )
         },
+    )
+
+    val planActions = PlanActions(
+        onTypeSelected = actions.onTypeSelected,
+        onUndo = viewModel::undoWaypoint,
+        onClear = viewModel::clearWaypoints,
+        onClose = viewModel::clearPlan,
+        onStart = ::onStartClicked,
+        onOpenSettings = actions.onOpenSettings,
     )
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -271,8 +324,18 @@ fun MapScreen(
                                 viewModel.following = false
                             }
                         }
+                        // w trybie planowania dotknięcie mapy dodaje punkt trasy
+                        googleMap.addOnMapClickListener { point ->
+                            if (viewModel.plan.value.editing) {
+                                viewModel.addWaypoint(DomainLatLng(point.latitude, point.longitude))
+                                true
+                            } else {
+                                false
+                            }
+                        }
                         googleMap.setStyle(STYLE_URL) { loadedStyle ->
                             addThematicLayers(loadedStyle)
+                            addPlanLayers(loadedStyle)
                             addRecordingLayers(loadedStyle)
                             style = loadedStyle
                             map = googleMap
@@ -372,14 +435,38 @@ fun MapScreen(
             Text("Moja pozycja")
         }
 
-        RecordingPanel(
-            state = recording,
-            selectedType = selectedType,
-            permissionDenied = permissionDenied,
-            actions = actions,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(12.dp),
-        )
+        if (plan.editing && recording.status == RecordingStatus.IDLE) {
+            PlanPanel(
+                plan = plan,
+                selectedType = selectedType,
+                startError = startError(recording, permissionDenied),
+                permissionDenied = permissionDenied,
+                actions = planActions,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(12.dp),
+            )
+        } else if (plan.routeId != null && recording.status == RecordingStatus.IDLE) {
+            FollowPanel(
+                plan = plan,
+                startError = startError(recording, permissionDenied),
+                permissionDenied = permissionDenied,
+                actions = planActions,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(12.dp),
+            )
+        } else {
+            RecordingPanel(
+                state = recording,
+                selectedType = selectedType,
+                permissionDenied = permissionDenied,
+                actions = actions,
+                navigation = navigation,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(12.dp),
+            )
+        }
     }
 }

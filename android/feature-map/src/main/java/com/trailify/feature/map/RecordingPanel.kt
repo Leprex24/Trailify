@@ -27,6 +27,7 @@ import com.trailify.core.domain.recording.averageSpeedMps
 import com.trailify.core.domain.recording.currentSpeedMps
 import com.trailify.core.domain.recording.paceMinPerKm
 import com.trailify.core.ui.formatClock
+import com.trailify.core.ui.formatDistance
 import com.trailify.core.ui.formatDistanceLive
 import com.trailify.core.ui.formatPace
 import com.trailify.core.ui.formatSpeed
@@ -37,6 +38,7 @@ import java.time.Instant
 internal class RecordingActions(
     val onTypeSelected: (ActivityType) -> Unit,
     val onStart: () -> Unit,
+    val onPlan: () -> Unit,
     val onPause: () -> Unit,
     val onResume: () -> Unit,
     val onStop: () -> Unit,
@@ -56,6 +58,7 @@ internal fun RecordingPanel(
     permissionDenied: Boolean,
     actions: RecordingActions,
     modifier: Modifier = Modifier,
+    navigation: NavigationUiState? = null,
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -66,7 +69,7 @@ internal fun RecordingPanel(
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             when (state.status) {
                 RecordingStatus.IDLE -> IdlePanel(state, selectedType, permissionDenied, actions)
-                RecordingStatus.RECORDING, RecordingStatus.PAUSED -> ActivePanel(state, actions)
+                RecordingStatus.RECORDING, RecordingStatus.PAUSED -> ActivePanel(state, navigation, actions)
                 RecordingStatus.FINISHED -> FinishedPanel(state, actions)
             }
         }
@@ -92,23 +95,29 @@ private fun IdlePanel(
             )
         }
     }
-    val error = when {
-        permissionDenied -> "Do nagrywania trasy potrzebna jest dokładna lokalizacja. Zezwól na nią w ustawieniach aplikacji."
-        state.error == RecordingError.START_FAILED -> "Nie udało się uruchomić nagrywania. Spróbuj ponownie."
-        state.error == RecordingError.LOCATION_PERMISSION -> "Brak dostępu do lokalizacji. Sprawdź uprawnienia aplikacji."
-        else -> null
-    }
+    val error = startError(state, permissionDenied)
     if (error != null) {
         Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         if (permissionDenied) {
             OutlinedButton(onClick = actions.onOpenSettings) { Text("Otwórz ustawienia") }
         }
     }
-    Button(onClick = actions.onStart, modifier = Modifier.fillMaxWidth()) { Text("Start") }
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = actions.onPlan, modifier = Modifier.weight(1f)) { Text("Zaplanuj trasę") }
+        Button(onClick = actions.onStart, modifier = Modifier.weight(1f)) { Text("Start") }
+    }
+}
+
+/** Komunikat o błędzie startu nagrywania (brak zgody, awaria) albo null. Wspólny dla panelu nagrywania i planowania. */
+internal fun startError(state: RecordingState, permissionDenied: Boolean): String? = when {
+    permissionDenied -> "Do nagrywania trasy potrzebna jest dokładna lokalizacja. Zezwól na nią w ustawieniach aplikacji."
+    state.error == RecordingError.START_FAILED -> "Nie udało się uruchomić nagrywania. Spróbuj ponownie."
+    state.error == RecordingError.LOCATION_PERMISSION -> "Brak dostępu do lokalizacji. Sprawdź uprawnienia aplikacji."
+    else -> null
 }
 
 @Composable
-private fun ActivePanel(state: RecordingState, actions: RecordingActions) {
+private fun ActivePanel(state: RecordingState, navigation: NavigationUiState?, actions: RecordingActions) {
     val paused = state.status == RecordingStatus.PAUSED
     Text(
         text = when {
@@ -119,6 +128,7 @@ private fun ActivePanel(state: RecordingState, actions: RecordingActions) {
         },
         style = MaterialTheme.typography.labelLarge,
     )
+    if (navigation != null) NavigationInfo(navigation)
     MainStats(state)
     SecondaryStats(state, live = !paused)
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -137,6 +147,22 @@ private fun FinishedPanel(state: RecordingState, actions: RecordingActions) {
     SecondaryStats(state, live = false)
     Button(onClick = actions.onOpenSummary, modifier = Modifier.fillMaxWidth()) { Text("Podsumowanie i zapis") }
     OutlinedButton(onClick = actions.onDiscard, modifier = Modifier.fillMaxWidth()) { Text("Odrzuć") }
+}
+
+/** Pozostały dystans do końca zaplanowanej trasy albo ostrzeżenie o zejściu z niej. */
+@Composable
+private fun NavigationInfo(navigation: NavigationUiState) {
+    val warning = navigation.offRoute
+    Text(
+        text = when {
+            navigation.arrived -> "Dotarłeś do końca trasy"
+            warning -> "Zszedłeś z trasy (${formatDistance(navigation.offRouteMeters)} od niej)"
+            else -> "Do końca trasy: ${formatDistance(navigation.remainingMeters)}"
+        },
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = if (warning && !navigation.arrived) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+    )
 }
 
 /** Czas i dystans: największe liczby. */

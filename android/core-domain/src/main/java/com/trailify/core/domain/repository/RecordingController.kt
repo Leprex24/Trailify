@@ -12,8 +12,11 @@ import kotlinx.coroutines.flow.StateFlow
 interface RecordingController {
     val state: StateFlow<RecordingState>
 
-    /** Uprawnienie do lokalizacji musi być przyznane przed wywołaniem. */
-    fun start(type: ActivityType)
+    /**
+     * Uprawnienie do lokalizacji musi być przyznane przed wywołaniem.
+     * [routeId] to opublikowana trasa, którą użytkownik przechodzi; zapisze się razem z aktywnością.
+     */
+    fun start(type: ActivityType, routeId: Long? = null)
     fun pause()
     fun resume()
 

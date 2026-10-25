@@ -46,6 +46,10 @@ fun Throwable.toUserMessage(): String = when ((this as? AppException)?.code) {
     "ACCOUNT_BLOCKED" -> "Konto zostało zablokowane"
     "UNAUTHORIZED" -> "Sesja wygasła, zaloguj się ponownie"
     "VALIDATION_ERROR" -> "Niepoprawne dane"
+    "UPLOAD_FAILED" -> "Nie udało się wysłać zdjęcia, spróbuj ponownie"
+    "INVALID_IMAGE" -> "Nie można odczytać tego zdjęcia"
+    "ROUTE_NOT_FOUND" -> "Nie znaleziono drogi między tymi punktami. Przesuń punkt bliżej drogi albo ścieżki"
+    "ROUTING_UNAVAILABLE" -> "Planowanie tras chwilowo niedostępne, spróbuj ponownie"
     "SERVICE_UNAVAILABLE", "UPSTREAM_ERROR" -> "Serwer chwilowo niedostępny, spróbuj ponownie"
     else -> "Coś poszło nie tak, spróbuj ponownie"
 }

@@ -53,6 +53,15 @@ W logu powinno być `Successfully applied 4 migrations` (przy kolejnych startach
    - blokada: `update profile set status = 'BLOCKED' where email = '...';`
      (każde żądanie z tokenem tego konta zwraca 403 `ACCOUNT_BLOCKED`; cofnięcie: `status = 'ACTIVE'`)
 
+5. Planowanie trasy (wymaga działającego GraphHoppera: `docker compose up -d graphhopper`, patrz `routing/README.md`):
+   ```
+   curl -X POST http://localhost:8080/api/v1/routing/plan \
+     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+     -d '{"profile":"CYCLING","points":[{"latitude":51.2465,"longitude":22.5684},{"latitude":51.2480,"longitude":22.5300}]}'
+   ```
+   → `distance` (metry), `durationSeconds` i `geometry` (GeoJSON). Bez GraphHoppera: 503 `ROUTING_UNAVAILABLE`.
+   Adres silnika zmienia zmienna `GRAPHHOPPER_URL` (domyślnie `http://localhost:8989`).
+
 Token ważny jest około godziny, potem pobierz nowy.
 
 ## Lokalna baza zamiast Supabase (opcjonalnie)

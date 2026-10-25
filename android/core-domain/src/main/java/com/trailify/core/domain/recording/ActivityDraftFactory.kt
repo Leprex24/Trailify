@@ -20,7 +20,7 @@ fun RecordingState.toActivityDraft(): ActivityDraft? {
     return ActivityDraft(
         clientId = id,
         type = type,
-        routeId = null,
+        routeId = routeId,
         startTime = start,
         endTime = if (end.isBefore(start)) start else end,
         distance = distanceMeters,

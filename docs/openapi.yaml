@@ -166,7 +166,10 @@ paths:
         Zwraca tylko trasy publiczne. Parametry `lat`, `lng` i `radiusKm` podaje się razem.
         Przy `sort=nearest` wymagane są `lat` i `lng`.
         Sortowanie `recommended` używa pola `recommendationScore` liczonego na podstawie
-        ocen i ich liczby (np. średnia bayesowska). Wzór ustala moduł Ocen.
+        ocen i ich liczby (średnia bayesowska, widok `route_rating_stats` w bazie).
+        Sortowanie `distance` zwraca od najkrótszej trasy, `nearest` od najbliższej punktowi
+        `lat`/`lng` (odległość do najbliższego punktu trasy, pole `distanceFromQuery`).
+        Gdy podano `lat` i `lng`, wyniki są ograniczone do promienia `radiusKm` (domyślnie 10 km).
         Cel wydajnościowy: odpowiedź poniżej 2 s.
       security: []
       x-owner: Kacper
@@ -235,7 +238,10 @@ paths:
         Trasę tworzy się z zarejestrowanej aktywności (`activityId`, geometria jest
         kopiowana z aktywności) albo z samej geometrii (`geometry`, np. trasa
         zaplanowana na mapie). Należy podać dokładnie jedno z tych dwóch pól.
-        Statystyki (dystans, czas) backend wylicza sam.
+        Dystans backend liczy sam z geometrii, czas kopiuje z aktywności (dla samej
+        geometrii jest `null`). Trasa krótsza niż 10 m jest odrzucana.
+        Zdjęcia najpierw wysyła aplikacja do Supabase Storage, tu trafiają tylko
+        `storageKey` (musi zaczynać się od identyfikatora użytkownika i `/`) oraz `url` (https).
       x-owner: Kacper
       requestBody:
         required: true
@@ -258,6 +264,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /routes/{routeId}:
     parameters:
       - $ref: '#/components/parameters/RouteId'
@@ -395,6 +403,37 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /routing/plan:
+    post:
+      tags: [Trasy]
+      operationId: planRoute
+      summary: Wyznaczenie trasy po drogach i ścieżkach przez podane punkty (W1)
+      description: |
+        Aplikacja wysyła punkty zaznaczone na mapie (start, punkty pośrednie, koniec), a backend
+        prosi o trasę silnik GraphHopper (dane OpenStreetMap). Rower używa profilu rowerowego,
+        bieg i spacer pieszego. Czas biegu liczony jest jako połowa czasu spaceru.
+      x-owner: Kacper
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoutePlanRequest'
+      responses:
+        '200':
+          description: Trasa poprowadzona przez wszystkie punkty
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoutePlan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Nie znaleziono trasy między punktami (`ROUTE_NOT_FOUND`), np. punkt poza obszarem danych
+        '503':
+          description: Silnik tras niedostępny (`ROUTING_UNAVAILABLE`)
   /activities:
     post:
       tags: [Aktywności]
@@ -946,6 +985,27 @@ components:
       properties:
         latitude: { type: number, format: double, minimum: -90, maximum: 90 }
         longitude: { type: number, format: double, minimum: -180, maximum: 180 }
+    RoutePlanRequest:
+      type: object
+      required: [profile, points]
+      properties:
+        profile:
+          $ref: '#/components/schemas/ActivityType'
+        points:
+          type: array
+          minItems: 2
+          maxItems: 25
+          description: Kolejne punkty trasy
+          items:
+            $ref: '#/components/schemas/LatLng'
+    RoutePlan:
+      type: object
+      required: [distance, durationSeconds, geometry]
+      properties:
+        distance: { type: number, format: double, description: Metry }
+        durationSeconds: { type: integer, description: Szacowany czas przejścia }
+        geometry:
+          $ref: '#/components/schemas/GeoJsonLineString'
     GeoJsonLineString:
       type: object
       description: 'GeoJSON LineString, współrzędne w kolejności [longitude, latitude, altitude?]'

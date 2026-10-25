@@ -19,12 +19,14 @@ import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Szczegóły trasy (W20-W22). Na razie sam opis.
- * TODO (Mikołaj): zdjęcia, recenzje (ReviewRepository), przycisk "Przejdź tę trasę".
+ * Przycisk "Przejdź tę trasę" jest podpięty (mapa START prowadzi po trasie); wygląd do dopracowania.
+ * TODO (Mikołaj): zdjęcia, recenzje (ReviewRepository).
  */
 @Composable
 fun RouteDetailsScreen(
     routeId: Long,
     onBack: () -> Unit,
+    onFollowRoute: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RouteDetailsViewModel = koinViewModel(),
 ) {
@@ -49,6 +51,13 @@ fun RouteDetailsScreen(
                 text = s.data.description ?: "Brak opisu",
                 modifier = Modifier.padding(top = 8.dp),
             )
+            Button(
+                onClick = {
+                    viewModel.followRoute(s.data)
+                    onFollowRoute()
+                },
+                modifier = Modifier.padding(top = 16.dp),
+            ) { Text("Przejdź tę trasę") }
         }
     }
 }

@@ -36,6 +36,8 @@ data class RecordingState(
     val clientId: String? = null,
     /** true, gdy nagranie przywrócono z pamięci telefonu po nieoczekiwanym zamknięciu aplikacji. */
     val restored: Boolean = false,
+    /** Trasa opublikowana przez społeczność, którą użytkownik przechodzi (null = nagranie bez trasy). */
+    val routeId: Long? = null,
 ) {
     /** true, gdy złapaliśmy już pierwszy sygnał GPS. */
     val hasFix: Boolean get() = points.isNotEmpty()
