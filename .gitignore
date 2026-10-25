@@ -15,3 +15,5 @@ backend/out/
 .DS_Store
 Thumbs.db
 *.log
+# Dane routingu (plik OSM i graf GraphHopper)
+routing/data/

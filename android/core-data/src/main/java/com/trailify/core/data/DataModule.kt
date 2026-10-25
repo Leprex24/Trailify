@@ -1,6 +1,8 @@
 package com.trailify.core.data
 
 import com.trailify.core.data.mock.MockAccountAuthRepository
+import com.trailify.core.data.api.ApiActivityRepository
+import com.trailify.core.data.api.ApiClient
 import com.trailify.core.data.api.ApiProfileRepository
 import com.trailify.core.data.mock.MockActivityRepository
 import com.trailify.core.data.mock.MockAdminRepository
@@ -61,14 +63,16 @@ val dataModule = module {
         }
         single<AuthRepository> { get<SupabaseAuthRepository>() }
         single<AccountAuthRepository> { get<SupabaseAuthRepository>() }
-        single<ProfileRepository> { ApiProfileRepository(supabase = get(), baseUrl = BuildConfig.API_BASE_URL) }
+        single { ApiClient(supabase = get(), baseUrl = BuildConfig.API_BASE_URL) }
+        single<ProfileRepository> { ApiProfileRepository(get()) }
+        single<ActivityRepository> { ApiActivityRepository(get()) }
     } else {
         single<AuthRepository> { MockAuthRepository() }
         single<AccountAuthRepository> { MockAccountAuthRepository() }
         single<ProfileRepository> { MockProfileRepository() }
+        single<ActivityRepository> { MockActivityRepository() }
     }
     single<RouteRepository> { MockRouteRepository() }
-    single<ActivityRepository> { MockActivityRepository() }
     single<ReviewRepository> { MockReviewRepository() }
     single<PoiRepository> { MockPoiRepository() }
     single<AdminRepository> { MockAdminRepository() }

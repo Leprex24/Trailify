@@ -115,6 +115,7 @@ private const val FOLLOW_ZOOM = 15.0
  */
 @Composable
 fun MapScreen(
+    onOpenSummary: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: MapViewModel = koinViewModel(),
 ) {
@@ -229,8 +230,12 @@ fun MapScreen(
         onStart = ::onStartClicked,
         onPause = viewModel::pauseRecording,
         onResume = viewModel::resumeRecording,
-        onStop = viewModel::stopRecording,
+        onStop = {
+            viewModel.stopRecording()
+            onOpenSummary()
+        },
         onDiscard = viewModel::discardRecording,
+        onOpenSummary = onOpenSummary,
         onOpenSettings = {
             context.startActivity(
                 Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),

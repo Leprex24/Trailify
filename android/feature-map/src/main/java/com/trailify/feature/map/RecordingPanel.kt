@@ -41,6 +41,7 @@ internal class RecordingActions(
     val onResume: () -> Unit,
     val onStop: () -> Unit,
     val onDiscard: () -> Unit,
+    val onOpenSummary: () -> Unit,
     val onOpenSettings: () -> Unit,
 )
 
@@ -134,7 +135,7 @@ private fun FinishedPanel(state: RecordingState, actions: RecordingActions) {
     Text("Zakończono: ${state.type.label()}", style = MaterialTheme.typography.titleMedium)
     MainStats(state)
     SecondaryStats(state, live = false)
-    Text("Zapis i publikacja trasy pojawią się w kolejnych krokach.", style = MaterialTheme.typography.bodySmall)
+    Button(onClick = actions.onOpenSummary, modifier = Modifier.fillMaxWidth()) { Text("Podsumowanie i zapis") }
     OutlinedButton(onClick = actions.onDiscard, modifier = Modifier.fillMaxWidth()) { Text("Odrzuć") }
 }
 

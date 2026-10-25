@@ -1,0 +1,45 @@
+# Konfiguracja GraphHopper dla Trailify.
+# Profile: bike (rower), foot (spacer i bieganie; różnicę w czasie liczymy sami).
+# Po zmianie tego pliku usuń folder routing/data/graph-cache, inaczej zmiany zostaną zignorowane.
+graphhopper:
+  # ścieżkę pliku OSM i grafu podaje Dockerfile (zmienne -Ddw.graphhopper...)
+  datareader.file: ""
+  graph.location: graph-cache
+
+  profiles:
+    - name: bike
+      custom_model_files: [bike.json]
+    - name: foot
+      custom_model_files: [foot.json]
+
+  # szybkie wyznaczanie tras (Contraction Hierarchies), przygotowywane przy imporcie
+  profiles_ch:
+    - profile: bike
+    - profile: foot
+  profiles_lm: []
+
+  # Tylko wartości potrzebne modelom foot.json i bike.json (lista musi pasować do wersji GraphHopper).
+  graph.encoded_values: |
+    foot_access, foot_average_speed, foot_priority, foot_road_access, hike_rating,
+    bike_access, bike_average_speed, bike_priority, bike_road_access, bike_network, mtb_rating,
+    country, road_class
+
+  # autostrady są niepotrzebne dla rowerów i pieszych
+  import.osm.ignored_highways: motorway
+  prepare.min_network_size: 200
+  routing.snap_preventions_default: tunnel, bridge, ferry
+  graph.dataaccess.default_type: RAM_STORE
+
+server:
+  application_connectors:
+    - type: http
+      port: 8989
+      # w kontenerze nasłuchujemy na wszystkich adresach; na zewnątrz port otwiera docker-compose tylko dla localhost
+      bind_host: 0.0.0.0
+      max_request_header_size: 50k
+  request_log:
+    appenders: []
+  admin_connectors:
+    - type: http
+      port: 8990
+      bind_host: 0.0.0.0

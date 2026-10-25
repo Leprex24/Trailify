@@ -5,4 +5,5 @@ import org.koin.dsl.module
 
 val mapModule = module {
     viewModel { MapViewModel(get(), get(), get()) }
+    viewModel { ActivitySummaryViewModel(get(), get()) }
 }

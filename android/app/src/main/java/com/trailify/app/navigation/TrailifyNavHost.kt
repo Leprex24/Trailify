@@ -36,6 +36,7 @@ import com.trailify.feature.auth.RegisterScreen
 import com.trailify.feature.community.CommunityScreen
 import com.trailify.feature.discover.DiscoverScreen
 import com.trailify.feature.discover.RouteDetailsScreen
+import com.trailify.feature.map.ActivitySummaryScreen
 import com.trailify.feature.map.MapScreen
 import com.trailify.feature.profile.AccountScreen
 import com.trailify.feature.profile.ProfileScreen
@@ -121,7 +122,10 @@ fun TrailifyNavHost() {
                     ScreenSurface { RoutesScreen(onRouteClick = { navController.navigate(Routes.routeDetails(it)) }) }
                 }
                 composable(Routes.MAP) {
-                    MapScreen()
+                    MapScreen(onOpenSummary = { navController.navigate(Routes.ACTIVITY_SUMMARY) })
+                }
+                composable(Routes.ACTIVITY_SUMMARY) {
+                    ScreenSurface { ActivitySummaryScreen(onDone = { navController.popBackStack() }) }
                 }
                 composable(Routes.COMMUNITY) { ScreenSurface { CommunityScreen() } }
                 composable(Routes.PROFILE) {
