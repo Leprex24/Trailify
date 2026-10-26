@@ -21,6 +21,11 @@ object Routes {
     /** Ekrany logowania i rejestracji - po zalogowaniu przechodzimy z nich na mapę. */
     val SIGN_IN = setOf(LOGIN, REGISTER)
 
+    const val ACTIVITY_ID_ARG = "activityId"
+    const val ACTIVITY_TYPE_ARG = "activityType"
+    const val PUBLISH_ROUTE = "publish-route/{$ACTIVITY_ID_ARG}/{$ACTIVITY_TYPE_ARG}"
+    fun publishRoute(activityId: Long, activityType: String) = "publish-route/$activityId/$activityType"
+
     const val ROUTE_ID_ARG = "routeId"
     const val ROUTE_DETAILS = "route/{$ROUTE_ID_ARG}"
     fun routeDetails(id: Long) = "route/$id"

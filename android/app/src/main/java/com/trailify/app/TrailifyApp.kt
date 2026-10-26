@@ -3,6 +3,7 @@ package com.trailify.app
 import android.app.Application
 import com.trailify.core.data.dataModule
 import com.trailify.feature.auth.authModule
+import com.trailify.feature.community.communityModule
 import com.trailify.feature.discover.discoverModule
 import com.trailify.feature.map.mapModule
 import com.trailify.feature.profile.profileModule
@@ -18,6 +19,7 @@ class TrailifyApp : Application() {
             modules(
                 dataModule,
                 authModule,
+                communityModule,
                 discoverModule,
                 mapModule,
                 profileModule,

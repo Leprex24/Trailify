@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.trailify.core.domain.model.ActivitySummary
 import com.trailify.core.domain.model.ActivityType
 import com.trailify.core.domain.model.RecordingState
 import com.trailify.core.domain.model.TrackPoint
@@ -60,6 +61,7 @@ private val DATE_FORMAT: DateTimeFormatter =
 @Composable
 fun ActivitySummaryScreen(
     onDone: () -> Unit,
+    onPublish: (ActivitySummary) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ActivitySummaryViewModel = koinViewModel(),
 ) {
@@ -100,10 +102,14 @@ fun ActivitySummaryScreen(
             recording.startedAt?.let { Text(DATE_FORMAT.format(it), style = MaterialTheme.typography.bodySmall) }
             SummaryStats(recording)
 
+            val saved = ui.saved
             when {
-                ui.saved != null -> {
+                saved != null -> {
                     Text("Aktywność została zapisana na Twoim koncie.", style = MaterialTheme.typography.bodyMedium)
-                    Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("Gotowe") }
+                    Button(onClick = { onPublish(saved.summary) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Opublikuj trasę")
+                    }
+                    OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("Gotowe") }
                 }
                 else -> {
                     if (!ui.canSave) {
