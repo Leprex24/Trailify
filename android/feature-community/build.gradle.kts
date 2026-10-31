@@ -20,6 +20,10 @@ android {
     buildFeatures {
         compose = true
     }
+    // android.util.Log w ViewModelu nie wywraca testów jednostkowych
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -35,5 +39,10 @@ dependencies {
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.androidx.compose)
     implementation(libs.koin.core.viewmodel)
+    // wybór zdjęć z galerii (Photo Picker)
+    implementation(libs.androidx.activity.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

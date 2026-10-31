@@ -28,12 +28,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.trailify.core.domain.model.ActivityType
 import com.trailify.core.domain.repository.AuthRepository
 import com.trailify.feature.auth.ConsentGate
 import com.trailify.feature.auth.LoginScreen
 import com.trailify.feature.auth.PrivacyPolicyScreen
 import com.trailify.feature.auth.RegisterScreen
 import com.trailify.feature.community.CommunityScreen
+import com.trailify.feature.community.publish.PublishRouteScreen
 import com.trailify.feature.discover.DiscoverScreen
 import com.trailify.feature.discover.RouteDetailsScreen
 import com.trailify.feature.map.ActivitySummaryScreen
@@ -125,7 +127,40 @@ fun TrailifyNavHost() {
                     MapScreen(onOpenSummary = { navController.navigate(Routes.ACTIVITY_SUMMARY) })
                 }
                 composable(Routes.ACTIVITY_SUMMARY) {
-                    ScreenSurface { ActivitySummaryScreen(onDone = { navController.popBackStack() }) }
+                    ScreenSurface {
+                        ActivitySummaryScreen(
+                            onDone = { navController.popBackStack() },
+                            onPublish = { saved ->
+                                navController.navigate(Routes.publishRoute(saved.id, saved.type.name)) {
+                                    // podsumowanie zrobiło swoje, "Wróć" z formularza prowadzi na mapę
+                                    popUpTo(Routes.ACTIVITY_SUMMARY) { inclusive = true }
+                                }
+                            },
+                        )
+                    }
+                }
+                composable(
+                    route = Routes.PUBLISH_ROUTE,
+                    arguments = listOf(
+                        navArgument(Routes.ACTIVITY_ID_ARG) { type = NavType.LongType },
+                        navArgument(Routes.ACTIVITY_TYPE_ARG) { type = NavType.StringType },
+                    ),
+                ) { entry ->
+                    val args = entry.arguments
+                    ScreenSurface {
+                        PublishRouteScreen(
+                            activityId = args?.getLong(Routes.ACTIVITY_ID_ARG) ?: 0L,
+                            activityType = ActivityType.valueOf(
+                                args?.getString(Routes.ACTIVITY_TYPE_ARG) ?: ActivityType.WALKING.name,
+                            ),
+                            onPublished = { routeId ->
+                                navController.navigate(Routes.routeDetails(routeId)) {
+                                    popUpTo(Routes.PUBLISH_ROUTE) { inclusive = true }
+                                }
+                            },
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
                 }
                 composable(Routes.COMMUNITY) { ScreenSurface { CommunityScreen() } }
                 composable(Routes.PROFILE) {
