@@ -31,10 +31,25 @@ services:
     environment:
       OSM_PBF: lubelskie-latest.osm.pbf
       JAVA_OPTS: "-Xms512m -Xmx2g"
+    restart: unless-stopped
     ports:
       - "127.0.0.1:8989:8989"
     volumes:
       - ./routing/data:/data
+
+  # Backend API. Klucze z pliku .env (w głównym folderze repo, poza Gitem).
+  # Start:  docker compose up -d --build backend graphhopper
+  backend:
+    build: ./backend
+    container_name: trailify-backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      GRAPHHOPPER_URL: http://graphhopper:8989
+    depends_on:
+      - graphhopper
+    ports:
+      - "127.0.0.1:8080:8080"
 
 volumes:
   trailify-db-data:
