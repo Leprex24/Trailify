@@ -55,7 +55,8 @@ internal class RecordingDatabase(context: Context) : SQLiteOpenHelper(context, "
                 lng real not null,
                 altitude real,
                 speed real,
-                recorded_at integer not null
+                recorded_at integer not null,
+                reconstructed integer not null default 0
             )
             """.trimIndent(),
         )
@@ -64,6 +65,8 @@ internal class RecordingDatabase(context: Context) : SQLiteOpenHelper(context, "
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         // wersja 2: id opublikowanej trasy, którą użytkownik przechodzi
         if (oldVersion < 2) db.execSQL("alter table session add column route_id integer")
+        // wersja 3: punkty odtworzone po utracie sygnału GPS (1 = odtworzony, 0 = zmierzony)
+        if (oldVersion < 3) db.execSQL("alter table point add column reconstructed integer not null default 0")
     }
 
     fun load(): SavedRecording? {
@@ -86,7 +89,11 @@ internal class RecordingDatabase(context: Context) : SQLiteOpenHelper(context, "
             )
         }
         val points = ArrayList<TrackPoint>()
-        db.rawQuery("select lat, lng, altitude, speed, recorded_at from point order by id", null).use { c ->
+        // kolejność wg czasu: punkty odtworzone dopisujemy później, ale leżą w czasie między zmierzonymi
+        db.rawQuery(
+            "select lat, lng, altitude, speed, recorded_at, reconstructed from point order by recorded_at, id",
+            null,
+        ).use { c ->
             while (c.moveToNext()) {
                 points.add(
                     TrackPoint(
@@ -95,6 +102,7 @@ internal class RecordingDatabase(context: Context) : SQLiteOpenHelper(context, "
                         altitude = if (c.isNull(2)) null else c.getDouble(2),
                         speed = if (c.isNull(3)) null else c.getDouble(3),
                         recordedAt = Instant.ofEpochMilli(c.getLong(4)),
+                        isReconstructed = c.getInt(5) != 0,
                     ),
                 )
             }
@@ -141,17 +149,36 @@ internal class RecordingDatabase(context: Context) : SQLiteOpenHelper(context, "
     }
 
     fun appendPoint(point: TrackPoint) {
-        writableDatabase.insert(
-            "point",
-            null,
-            ContentValues().apply {
-                put("lat", point.latitude)
-                put("lng", point.longitude)
-                point.altitude?.let { put("altitude", it) }
-                point.speed?.let { put("speed", it) }
-                put("recorded_at", point.recordedAt.toEpochMilli())
-            },
-        )
+        writableDatabase.insert("point", null, pointValues(point))
+    }
+
+    /**
+     * Zastępuje punkty odtworzone leżące w czasie między [fromMs] a [toMs] (luka w sygnale GPS) podanymi.
+     * Punkty zmierzone zostają nietknięte.
+     */
+    fun replaceReconstructed(fromMs: Long, toMs: Long, points: List<TrackPoint>) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            db.delete(
+                "point",
+                "reconstructed = 1 and recorded_at > ? and recorded_at < ?",
+                arrayOf(fromMs.toString(), toMs.toString()),
+            )
+            points.forEach { db.insert("point", null, pointValues(it)) }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    private fun pointValues(point: TrackPoint) = ContentValues().apply {
+        put("lat", point.latitude)
+        put("lng", point.longitude)
+        point.altitude?.let { put("altitude", it) }
+        point.speed?.let { put("speed", it) }
+        put("recorded_at", point.recordedAt.toEpochMilli())
+        put("reconstructed", if (point.isReconstructed) 1 else 0)
     }
 
     fun updateSession(status: String, elapsedMs: Long, distanceMeters: Double, steps: Int?, finishedAtMs: Long?) {
@@ -182,6 +209,6 @@ internal class RecordingDatabase(context: Context) : SQLiteOpenHelper(context, "
     }
 
     private companion object {
-        const val VERSION = 2
+        const val VERSION = 3
     }
 }

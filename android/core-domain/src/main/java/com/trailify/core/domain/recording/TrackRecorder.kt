@@ -26,6 +26,9 @@ fun distanceMeters(a: LatLng, b: LatLng): Double {
  *  - jego dokładność jest gorsza niż [maxAccuracyMeters],
  *  - leży bliżej niż [minStepMeters] od poprzedniego (stoisz w miejscu, a GPS się waha),
  *  - wynika z niego prędkość większa niż [maxSpeedMps] (skok o kilometr w sekundę).
+ *
+ * Gdy po dłuższej przerwie wraca sygnał GPS (punkt dalej niż [GapRules.MIN_GAP_METERS] i później niż
+ * [GapRules.MIN_GAP_SECONDS]), zapamiętuje lukę ([takeGap]); jej przebieg można potem wstawić w [replaceGap].
  */
 class TrackRecorder(
     private val maxAccuracyMeters: Float = 30f,
@@ -34,6 +37,7 @@ class TrackRecorder(
 ) {
     private val accepted = ArrayList<TrackPoint>()
     private var last: TrackPoint? = null
+    private var pendingGap: GpsGap? = null
 
     var distanceMeters: Double = 0.0
         private set
@@ -60,9 +64,40 @@ class TrackRecorder(
         val seconds = (point.recordedAt.toEpochMilli() - prev.recordedAt.toEpochMilli()) / 1000.0
         if (seconds > 0 && step / seconds > maxSpeedMps) return false
 
+        if (seconds >= GapRules.MIN_GAP_SECONDS && step >= GapRules.MIN_GAP_METERS) {
+            pendingGap = GpsGap(prev, point)
+        }
+
         distanceMeters += step
         accepted.add(point)
         last = point
+        return true
+    }
+
+    /** Luka wykryta przy ostatnio dodanym punkcie (jednorazowo); null, gdy jej nie było. */
+    fun takeGap(): GpsGap? {
+        val gap = pendingGap
+        pendingGap = null
+        return gap
+    }
+
+    /**
+     * Zastępuje wszystko, co leży między końcami luki, podanymi punktami odtworzonymi i poprawia dystans
+     * (zamiast linii prostej liczy się długość odtworzonej trasy). Można wołać wielokrotnie dla tej samej luki
+     * (np. najpierw linia prosta, potem trasa po drogach). Zwraca false, gdy luki nie ma już w nagraniu.
+     */
+    fun replaceGap(gap: GpsGap, inner: List<TrackPoint>): Boolean {
+        val toIndex = accepted.lastIndexOf(gap.to)
+        if (toIndex < 1) return false
+        var fromIndex = toIndex - 1
+        while (fromIndex >= 0 && accepted[fromIndex].isReconstructed) fromIndex--
+        if (fromIndex < 0 || accepted[fromIndex] != gap.from) return false
+
+        val oldLength = trackLengthMeters(accepted.subList(fromIndex, toIndex + 1))
+        val newLength = trackLengthMeters(listOf(gap.from) + inner + gap.to)
+        accepted.subList(fromIndex + 1, toIndex).clear()
+        accepted.addAll(fromIndex + 1, inner)
+        distanceMeters += newLength - oldLength
         return true
     }
 
@@ -72,6 +107,7 @@ class TrackRecorder(
      */
     fun breakSegment() {
         last = null
+        pendingGap = null
     }
 
     /** Przywraca stan zapisany wcześniej (po restarcie aplikacji). Dystans między sesjami się nie liczy. */
@@ -80,6 +116,7 @@ class TrackRecorder(
         accepted.addAll(points)
         this.distanceMeters = distanceMeters
         last = null
+        pendingGap = null
     }
 
     fun snapshot(): List<TrackPoint> = accepted.toList()

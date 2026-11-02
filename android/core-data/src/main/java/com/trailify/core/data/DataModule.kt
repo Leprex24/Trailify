@@ -21,6 +21,7 @@ import com.trailify.core.data.mock.MockReviewRepository
 import com.trailify.core.data.mock.MockRouteRepository
 import com.trailify.core.data.overpass.OverpassMapLayerRepository
 import com.trailify.core.data.recording.FusedLocationSource
+import com.trailify.core.data.recording.PaceProfileStore
 import com.trailify.core.data.recording.RecordingStore
 import com.trailify.core.data.supabase.SupabaseAuthRepository
 import com.trailify.core.domain.repository.AccountAuthRepository
@@ -30,6 +31,7 @@ import com.trailify.core.domain.repository.AuthRepository
 import com.trailify.core.domain.repository.MapLayerRepository
 import com.trailify.core.domain.repository.PoiRepository
 import com.trailify.core.domain.repository.ProfileRepository
+import com.trailify.core.domain.recording.GapReconstructor
 import com.trailify.core.domain.repository.RecordingController
 import com.trailify.core.domain.repository.ReviewRepository
 import com.trailify.core.domain.repository.RouteRepository
@@ -98,7 +100,9 @@ val dataModule = module {
     single<AdminRepository> { MockAdminRepository() }
     single { FusedLocationSource(androidContext()) }
     single<UserLocationSource> { get<FusedLocationSource>() }
-    single { RecordingStore(androidContext()) }
+    single { GapReconstructor(get()) }
+    single { PaceProfileStore(androidContext()) }
+    single { RecordingStore(androidContext(), get(), get()) }
     single<RecordingController> { get<RecordingStore>() }
     single<RouteFollowController> { InMemoryRouteFollowController() }
     single<MapLayerRepository> { OverpassMapLayerRepository(androidContext().cacheDir) }

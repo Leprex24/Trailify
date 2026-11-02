@@ -1,5 +1,6 @@
 package com.trailify.core.domain.model
 
+import com.trailify.core.domain.recording.GapInfo
 import java.time.Instant
 
 enum class RecordingStatus {
@@ -38,6 +39,8 @@ data class RecordingState(
     val restored: Boolean = false,
     /** Trasa opublikowana przez społeczność, którą użytkownik przechodzi (null = nagranie bez trasy). */
     val routeId: Long? = null,
+    /** Luki w sygnale GPS wypełnione przez aplikację, z propozycjami przebiegu do zmiany w podsumowaniu. */
+    val gaps: List<GapInfo> = emptyList(),
 ) {
     /** true, gdy złapaliśmy już pierwszy sygnał GPS. */
     val hasFix: Boolean get() = points.isNotEmpty()

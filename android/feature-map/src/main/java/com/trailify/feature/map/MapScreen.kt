@@ -179,7 +179,8 @@ fun MapScreen(
 
     // Czerwona linia z nagrywanej trasy.
     val points = recording.points
-    LaunchedEffect(style, points.size) {
+    // klucz to sama lista: punkty odtworzone po utracie GPS potrafią zmienić linię bez zmiany liczby punktów
+    LaunchedEffect(style, points) {
         val loadedStyle = style ?: return@LaunchedEffect
         val json = withContext(Dispatchers.Default) { trackJson(points) }
         loadedStyle.getSourceAs<GeoJsonSource>(TRACK_SOURCE)?.setGeoJson(json)

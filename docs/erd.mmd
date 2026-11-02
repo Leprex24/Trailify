@@ -58,7 +58,7 @@ erDiagram
         double altitude
         double speed "m/s"
         timestamptz recorded_at
-        boolean is_reconstructed "true = odtworzony przez AI"
+        boolean is_reconstructed "true = odtworzony algorytmem po utracie GPS"
     }
     review {
         bigint id PK

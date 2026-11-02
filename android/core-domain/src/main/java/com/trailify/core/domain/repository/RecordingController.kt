@@ -1,7 +1,9 @@
 package com.trailify.core.domain.repository
 
 import com.trailify.core.domain.model.ActivityType
+import com.trailify.core.domain.model.LatLng
 import com.trailify.core.domain.model.RecordingState
+import com.trailify.core.domain.recording.ManualGapResult
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -25,4 +27,16 @@ interface RecordingController {
 
     /** Usuwa dane nagrania i wraca do stanu początkowego. */
     fun discard()
+
+    /**
+     * Wybiera inną z propozycji przebiegu trasy w luce GPS ([RecordingState.gaps]).
+     * Działa tylko na zakończonym nagraniu, w podsumowaniu.
+     */
+    fun selectGapCandidate(gapId: Int, index: Int)
+
+    /**
+     * Ustawia przebieg trasy w luce wyznaczony ręcznie: trasa jest prowadzona po drogach i ścieżkach przez
+     * zaznaczone punkty i sprawdzana pod kątem realnego tempa. Działa tylko na zakończonym nagraniu.
+     */
+    suspend fun setManualGapRoute(gapId: Int, waypoints: List<LatLng>): ManualGapResult
 }
