@@ -38,6 +38,19 @@ class RouteDetailsViewModel(
         )
     }
 
+    /** Ponowne pobranie bez kółka ładowania (np. nowa średnia ocen po dodaniu opinii). */
+    fun refresh(routeId: Long) {
+        viewModelScope.launch {
+            try {
+                _state.value = UiState.Success(routes.get(routeId))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // zostawiamy poprzednie dane, odświeżenie nie jest konieczne
+            }
+        }
+    }
+
     fun load(routeId: Long) {
         viewModelScope.launch {
             _state.value = UiState.Loading

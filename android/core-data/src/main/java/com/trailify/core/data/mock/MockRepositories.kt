@@ -280,7 +280,7 @@ class MockReviewRepository : ReviewRepository {
     override suspend fun create(routeId: Long, draft: ReviewDraft): Review {
         fakeNetwork()
         if (reviews.any { it.routeId == routeId && it.user.id == MockData.me.id }) {
-            throw AppException("CONFLICT", "Ta trasa jest już oceniona")
+            throw AppException("ALREADY_REVIEWED", "Ta trasa jest już oceniona")
         }
         val review = Review(
             id = nextId++,

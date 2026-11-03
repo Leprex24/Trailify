@@ -1,5 +1,6 @@
 package com.trailify.feature.community.publish
 
+import com.trailify.core.ui.photosThatFit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -36,8 +37,8 @@ class PublishValidationTest {
 
     @Test
     fun limitZdjecMaksymalnieDziesiec() {
-        assertEquals(3, photosThatFit(current = 0, picked = 3))
-        assertEquals(2, photosThatFit(current = 8, picked = 5))
-        assertEquals(0, photosThatFit(current = 10, picked = 1))
+        assertEquals(3, photosThatFit(current = 0, picked = 3, max = ROUTE_PHOTOS_MAX))
+        assertEquals(2, photosThatFit(current = 8, picked = 5, max = ROUTE_PHOTOS_MAX))
+        assertEquals(0, photosThatFit(current = 10, picked = 1, max = ROUTE_PHOTOS_MAX))
     }
 }

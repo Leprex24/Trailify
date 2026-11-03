@@ -20,6 +20,3 @@ fun validateRouteDescription(description: String): String? =
     } else {
         null
     }
-
-/** Ile z [picked] wybranych zdjęć zmieści się, gdy formularz ma już [current]. */
-fun photosThatFit(current: Int, picked: Int): Int = picked.coerceAtMost(ROUTE_PHOTOS_MAX - current).coerceAtLeast(0)

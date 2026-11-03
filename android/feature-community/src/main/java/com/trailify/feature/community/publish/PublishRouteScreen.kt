@@ -50,6 +50,8 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trailify.core.domain.model.ActivityType
+import com.trailify.core.ui.PHOTO_TILE_SIZE
+import com.trailify.core.ui.PhotoTile
 import com.trailify.core.ui.label
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -150,7 +152,7 @@ fun PublishRouteScreen(
                         onClick = {
                             pickPhotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                         },
-                        modifier = Modifier.size(TILE_SIZE),
+                        modifier = Modifier.size(PHOTO_TILE_SIZE),
                     ) {
                         Column(
                             modifier = Modifier.fillMaxSize(),
@@ -184,8 +186,6 @@ fun PublishRouteScreen(
     }
 }
 
-private val TILE_SIZE = 96.dp
-
 @Composable
 private fun SectionTitle(text: String) {
     Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
@@ -201,42 +201,3 @@ private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChang
         Switch(checked = checked, onCheckedChange = onChange)
     }
 }
-
-@Composable
-private fun PhotoTile(photo: PhotoItem, onRemove: () -> Unit, onRetry: () -> Unit) {
-    val sizePx = with(LocalDensity.current) { TILE_SIZE.roundToPx() }
-    val thumbnail by rememberThumbnail(photo.localUri, sizePx)
-    Box(
-        modifier = Modifier
-            .size(TILE_SIZE)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-    ) {
-        thumbnail?.let {
-            Image(it, contentDescription = "Wybrane zdjęcie", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-        }
-        when {
-            photo.isUploading -> Box(Modifier.fillMaxSize().background(SCRIM), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp, color = Color.White)
-            }
-            photo.error != null -> Box(Modifier.fillMaxSize().background(SCRIM), contentAlignment = Alignment.Center) {
-                IconButton(onClick = onRetry) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Wyślij zdjęcie ponownie", tint = Color.White)
-                }
-            }
-        }
-        IconButton(
-            onClick = onRemove,
-            modifier = Modifier.align(Alignment.TopEnd).size(32.dp),
-        ) {
-            Icon(
-                Icons.Default.Close,
-                contentDescription = "Usuń zdjęcie",
-                tint = Color.White,
-                modifier = Modifier.background(SCRIM, RoundedCornerShape(50)).padding(2.dp),
-            )
-        }
-    }
-}
-
-private val SCRIM = Color.Black.copy(alpha = 0.45f)

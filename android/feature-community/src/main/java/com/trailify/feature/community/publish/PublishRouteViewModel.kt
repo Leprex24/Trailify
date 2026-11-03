@@ -4,10 +4,11 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trailify.core.domain.model.ActivityType
-import com.trailify.core.domain.model.PhotoRef
 import com.trailify.core.domain.model.RouteDraft
 import com.trailify.core.domain.repository.PhotoUploader
 import com.trailify.core.domain.repository.RouteRepository
+import com.trailify.core.ui.PhotoItem
+import com.trailify.core.ui.photosThatFit
 import com.trailify.core.ui.toUserMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,15 +16,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-/** Zdjęcie w formularzu: wybrane z telefonu ([localUri]) i wysyłane od razu do Storage. */
-data class PhotoItem(
-    val localUri: String,
-    val uploaded: PhotoRef? = null,
-    val error: String? = null,
-) {
-    val isUploading: Boolean get() = uploaded == null && error == null
-}
 
 data class PublishUiState(
     val name: String = "",
@@ -70,7 +62,7 @@ class PublishRouteViewModel(
     fun onPhotosPicked(uris: List<String>) {
         val current = _ui.value.photos
         val fresh = uris.filter { uri -> current.none { it.localUri == uri } }
-        val fit = photosThatFit(current.size, fresh.size)
+        val fit = photosThatFit(current.size, fresh.size, ROUTE_PHOTOS_MAX)
         val accepted = fresh.take(fit)
         _ui.update {
             it.copy(

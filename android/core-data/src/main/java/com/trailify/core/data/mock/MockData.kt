@@ -2,6 +2,7 @@ package com.trailify.core.data.mock
 
 import com.trailify.core.domain.model.ActivityType
 import com.trailify.core.domain.model.LatLng
+import com.trailify.core.domain.model.Photo
 import com.trailify.core.domain.model.Poi
 import com.trailify.core.domain.model.Role
 import com.trailify.core.domain.model.Route
@@ -30,6 +31,9 @@ object MockData {
 
     private fun line(vararg p: Pair<Double, Double>) = p.map { LatLng(it.first, it.second) }
 
+    /** Przykładowe zdjęcie z internetu (stały obrazek dla danego klucza). */
+    private fun photo(id: Long, seed: String) = Photo(id, "https://picsum.photos/seed/trailify-$seed/800/600")
+
     private fun summary(
         id: Long,
         name: String,
@@ -44,6 +48,7 @@ object MockData {
         tourist: Boolean = false,
         scenic: Boolean = false,
         isPublic: Boolean = true,
+        thumbnailUrl: String? = null,
     ) = RouteSummary(
         id = id,
         name = name,
@@ -57,7 +62,7 @@ object MockData {
         reviewCount = reviews,
         recommendationScore = score,
         startPoint = start,
-        thumbnailUrl = null,
+        thumbnailUrl = thumbnailUrl,
         distanceFromQuery = null,
         owner = owner,
         createdAt = Instant.parse("2026-10-0${(id % 9 + 1).toInt()}T12:00:00Z"),
@@ -66,24 +71,27 @@ object MockData {
     val routes: List<Route> = listOf(
         Route(
             summary = summary(1, "Wokół Zalewu Zemborzyckiego", ActivityType.CYCLING, 26_400.0, 5_400, 4.7, 31, 4.5,
-                LatLng(51.2181, 22.6120), anna, tourist = true, scenic = true),
+                LatLng(51.2181, 22.6120), anna, tourist = true, scenic = true,
+                thumbnailUrl = photo(1, "zalew1").url),
             description = "Płaska, asfaltowa pętla wokół zalewu. Dużo widoków na wodę.",
             geometry = line(51.2181 to 22.6120, 51.2150 to 22.6250, 51.2060 to 22.6300, 51.2000 to 22.6150, 51.2181 to 22.6120),
-            photos = emptyList(),
+            photos = listOf(photo(1, "zalew1"), photo(2, "zalew2"), photo(3, "zalew3")),
         ),
         Route(
             summary = summary(2, "Park Saski - Ogród Botaniczny", ActivityType.WALKING, 4_800.0, 3_600, 4.2, 12, 4.0,
-                LatLng(51.2465, 22.5530), marek, tourist = true),
+                LatLng(51.2465, 22.5530), marek, tourist = true,
+                thumbnailUrl = photo(4, "park1").url),
             description = "Spokojny spacer przez centrum Lublina.",
             geometry = line(51.2465 to 22.5530, 51.2440 to 22.5600, 51.2400 to 22.5680, 51.2370 to 22.5700),
-            photos = emptyList(),
+            photos = listOf(photo(4, "park1"), photo(5, "park2")),
         ),
         Route(
             summary = summary(3, "Bieg w Dolinie Bystrzycy", ActivityType.RUNNING, 8_200.0, 2_700, 3.9, 5, 3.6,
-                LatLng(51.2350, 22.5100), anna, scenic = true),
+                LatLng(51.2350, 22.5100), anna, scenic = true,
+                thumbnailUrl = photo(6, "bystrzyca1").url),
             description = "Trasa biegowa przez pola i las, nawierzchnia mieszana.",
             geometry = line(51.2350 to 22.5100, 51.2400 to 22.5200, 51.2450 to 22.5250, 51.2480 to 22.5150),
-            photos = emptyList(),
+            photos = listOf(photo(6, "bystrzyca1")),
         ),
         Route(
             summary = summary(4, "Lublin - Nałęczów rowerem", ActivityType.CYCLING, 38_000.0, 8_100, null, 0, null,
