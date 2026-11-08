@@ -15,6 +15,7 @@ import com.trailify.core.domain.model.RecordingState
 import com.trailify.core.domain.model.RecordingStatus
 import com.trailify.core.domain.model.TrackPoint
 import com.trailify.core.domain.recording.CandidateKind
+import com.trailify.core.domain.recording.FixFilter
 import com.trailify.core.domain.recording.GapContext
 import com.trailify.core.domain.recording.GapInfo
 import com.trailify.core.domain.recording.GapReconstructor
@@ -76,6 +77,9 @@ class RecordingStore(
     private var stepsAtLastPoint: Int? = null
     private var stride = StrideEstimator()
 
+    // pomija stare i mało dokładne odczyty zaraz po starcie, wznowieniu i powrocie sygnału GPS
+    private val fixFilter = FixFilter()
+
     // tempo użytkownika z dotychczasowych tras (pamiętane między nagraniami), uczy się też w trakcie nagrania
     private var pace = PaceProfile()
 
@@ -133,6 +137,7 @@ class RecordingStore(
         recorder = TrackRecorder()
         stride = StrideEstimator()
         pace = paceStore.load(type)
+        fixFilter.reset()
         stepsAtLastPoint = null
         gapInfos.clear()
         nextGapId = 1
@@ -167,6 +172,7 @@ class RecordingStore(
     override fun resume() {
         if (_state.value.status != RecordingStatus.PAUSED) return
         lastTickMs = SystemClock.elapsedRealtime()
+        fixFilter.reset()
         _state.update { it.copy(status = RecordingStatus.RECORDING, restored = false) }
         // Po przywróceniu nagrania po restarcie aplikacji usługa nie działa, więc trzeba ją uruchomić.
         if (!ensureServiceRunning()) {
@@ -219,6 +225,12 @@ class RecordingStore(
     /** Nowa pozycja z GPS (wołane przez usługę). */
     fun onLocation(location: Location) {
         if (_state.value.status != RecordingStatus.RECORDING) return
+        val accuracy = if (location.hasAccuracy()) location.accuracy else null
+        val ageMs = (SystemClock.elapsedRealtimeNanos() - location.elapsedRealtimeNanos) / 1_000_000
+        if (!fixFilter.accept(SystemClock.elapsedRealtime(), ageMs, accuracy)) {
+            Log.d(TAG, "Pominięto odczyt GPS (rozgrzewka): wiek ${ageMs} ms, dokładność $accuracy m")
+            return
+        }
         val point = TrackPoint(
             latitude = location.latitude,
             longitude = location.longitude,
@@ -226,7 +238,6 @@ class RecordingStore(
             speed = if (location.hasSpeed()) location.speed.toDouble() else null,
             recordedAt = Instant.ofEpochMilli(location.time),
         )
-        val accuracy = if (location.hasAccuracy()) location.accuracy else null
         val stepsNow = _state.value.steps
         val stepsBefore = stepsAtLastPoint
         val distanceBefore = recorder.distanceMeters
@@ -242,6 +253,9 @@ class RecordingStore(
                 null
             }
             val gap = recorder.takeGap()
+            if (gap != null) {
+                Log.i(TAG, "Wykryto lukę GPS: ${gap.seconds} s, ${gap.straightMeters.toInt()} m w linii prostej")
+            }
             if (gap == null) {
                 // zwykły odcinek z działającym GPS (bez postoju w środku): uczymy się długości kroku
                 val points = _state.value.points
