@@ -55,7 +55,16 @@ fun validateRouteCreate(userId: UUID, request: RouteCreateRequest): List<ApiFiel
         }
     }
 
-    val photos = request.photos.orEmpty()
+    errors.addAll(validatePhotoInputs(userId, request.photos.orEmpty()))
+    return errors
+}
+
+/**
+ * Wspólne zasady dla zdjęć tras i recenzji: plik musi leżeć w folderze użytkownika w Storage,
+ * adres musi być https, a ten sam plik nie może wystąpić dwa razy.
+ */
+fun validatePhotoInputs(userId: UUID, photos: List<PhotoInputRequest>): List<ApiFieldError> {
+    val errors = mutableListOf<ApiFieldError>()
     val prefix = "$userId/"
     if (photos.any { it.storageKey != null && (!it.storageKey.startsWith(prefix) || it.storageKey.contains("..")) }) {
         errors.add(ApiFieldError("photos", "Klucz zdjęcia musi zaczynać się od identyfikatora użytkownika"))

@@ -51,5 +51,9 @@ fun Throwable.toUserMessage(): String = when ((this as? AppException)?.code) {
     "ROUTE_NOT_FOUND" -> "Nie znaleziono drogi między tymi punktami. Przesuń punkt bliżej drogi albo ścieżki"
     "ROUTING_UNAVAILABLE" -> "Planowanie tras chwilowo niedostępne, spróbuj ponownie"
     "SERVICE_UNAVAILABLE", "UPSTREAM_ERROR" -> "Serwer chwilowo niedostępny, spróbuj ponownie"
+    "ROUTE_NOT_COMPLETED" -> "Możesz ocenić trasę dopiero po jej przejściu"
+    "ALREADY_REVIEWED" -> "Ta trasa ma już Twoją ocenę"
+    "OWN_ROUTE" -> "Nie można oceniać własnej trasy"
+    "NOT_FOUND" -> "Nie znaleziono - mogło zostać usunięte"
     else -> "Coś poszło nie tak, spróbuj ponownie"
 }

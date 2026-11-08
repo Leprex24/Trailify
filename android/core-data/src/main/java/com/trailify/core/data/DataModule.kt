@@ -4,6 +4,7 @@ import com.trailify.core.data.mock.MockAccountAuthRepository
 import com.trailify.core.data.api.ApiActivityRepository
 import com.trailify.core.data.api.ApiClient
 import com.trailify.core.data.api.ApiProfileRepository
+import com.trailify.core.data.api.ApiReviewRepository
 import com.trailify.core.data.api.ApiRoutePlanner
 import com.trailify.core.data.api.ApiRouteRepository
 import com.trailify.core.data.mock.MockPhotoUploader
@@ -78,6 +79,7 @@ val dataModule = module {
         single<ActivityRepository> { ApiActivityRepository(get()) }
         single<RoutePlanner> { ApiRoutePlanner(get()) }
         single<RouteRepository> { ApiRouteRepository(get()) }
+        single<ReviewRepository> { ApiReviewRepository(get()) }
         single<PhotoUploader> {
             SupabasePhotoUploader(
                 context = androidContext(),
@@ -93,9 +95,9 @@ val dataModule = module {
         single<ActivityRepository> { MockActivityRepository() }
         single<RoutePlanner> { MockRoutePlanner() }
         single<RouteRepository> { MockRouteRepository() }
+        single<ReviewRepository> { MockReviewRepository() }
         single<PhotoUploader> { MockPhotoUploader() }
     }
-    single<ReviewRepository> { MockReviewRepository() }
     single<PoiRepository> { MockPoiRepository() }
     single<AdminRepository> { MockAdminRepository() }
     single { FusedLocationSource(androidContext()) }
