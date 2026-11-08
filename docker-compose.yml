@@ -37,6 +37,25 @@ services:
     volumes:
       - ./routing/data:/data
 
+  # Własny serwer Overpass: warstwy mapy (ścieżki rowerowe, szlaki, ścieżki leśne) dla backendu.
+  # Dane OSM: województwo lubelskie (to samo co w routingu). Pierwszy start pobiera dane i buduje bazę
+  # (kilkanaście minut), potem baza zostaje w wolumenie. Instrukcja: overpass/README.md
+  # Start:  docker compose up -d overpass
+  overpass:
+    image: wiktorn/overpass-api:latest
+    container_name: trailify-overpass
+    restart: unless-stopped
+    environment:
+      OVERPASS_MODE: init
+      OVERPASS_META: "no"
+      OVERPASS_PLANET_URL: https://download.geofabrik.de/europe/poland/lubelskie-latest.osm.bz2
+      OVERPASS_RULES_LOAD: "10"
+      OVERPASS_COMPRESSION: gz
+    ports:
+      - "127.0.0.1:8081:80"
+    volumes:
+      - trailify-overpass-data:/db
+
   # Backend API. Klucze z pliku .env (w głównym folderze repo, poza Gitem).
   # Start:  docker compose up -d --build backend graphhopper
   backend:
@@ -46,10 +65,13 @@ services:
     env_file: .env
     environment:
       GRAPHHOPPER_URL: http://graphhopper:8989
+      OVERPASS_URL: http://overpass:80
     depends_on:
       - graphhopper
+      - overpass
     ports:
       - "127.0.0.1:8080:8080"
 
 volumes:
   trailify-db-data:
+  trailify-overpass-data:

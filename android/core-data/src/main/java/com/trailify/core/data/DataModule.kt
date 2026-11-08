@@ -3,6 +3,7 @@ package com.trailify.core.data
 import com.trailify.core.data.mock.MockAccountAuthRepository
 import com.trailify.core.data.api.ApiActivityRepository
 import com.trailify.core.data.api.ApiClient
+import com.trailify.core.data.api.ApiMapLayerRepository
 import com.trailify.core.data.api.ApiProfileRepository
 import com.trailify.core.data.api.ApiReviewRepository
 import com.trailify.core.data.api.ApiRoutePlanner
@@ -80,6 +81,8 @@ val dataModule = module {
         single<RoutePlanner> { ApiRoutePlanner(get()) }
         single<RouteRepository> { ApiRouteRepository(get()) }
         single<ReviewRepository> { ApiReviewRepository(get()) }
+        // warstwy mapy przez backend (własny Overpass); publiczne serwery Overpass tylko awaryjnie
+        single<MapLayerRepository> { ApiMapLayerRepository(get(), OverpassMapLayerRepository(androidContext().cacheDir)) }
         single<PhotoUploader> {
             SupabasePhotoUploader(
                 context = androidContext(),
@@ -97,6 +100,8 @@ val dataModule = module {
         single<RouteRepository> { MockRouteRepository() }
         single<ReviewRepository> { MockReviewRepository() }
         single<PhotoUploader> { MockPhotoUploader() }
+        // bez kluczy Supabase nie ma sesji do backendu, więc warstwy idą wprost z publicznych serwerów Overpass
+        single<MapLayerRepository> { OverpassMapLayerRepository(androidContext().cacheDir) }
     }
     single<PoiRepository> { MockPoiRepository() }
     single<AdminRepository> { MockAdminRepository() }
@@ -107,5 +112,4 @@ val dataModule = module {
     single { RecordingStore(androidContext(), get(), get()) }
     single<RecordingController> { get<RecordingStore>() }
     single<RouteFollowController> { InMemoryRouteFollowController() }
-    single<MapLayerRepository> { OverpassMapLayerRepository(androidContext().cacheDir) }
 }

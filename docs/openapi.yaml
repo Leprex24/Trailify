@@ -40,6 +40,8 @@ tags:
     description: Publikowanie, wyszukiwanie i przeglądanie tras (W2, W3, W16–W19)
   - name: Aktywności
     description: Zarejestrowane aktywności i ślad GPS (W14, W25)
+  - name: Mapa
+    description: Warstwy tematyczne mapy z OpenStreetMap (W1)
   - name: Recenzje
     description: Oceny i zdjęcia do ukończonych tras (W20, W21)
   - name: Ciekawe punkty
@@ -435,6 +437,46 @@ paths:
           description: Nie znaleziono trasy między punktami (`ROUTE_NOT_FOUND`), np. punkt poza obszarem danych
         '503':
           description: Silnik tras niedostępny (`ROUTING_UNAVAILABLE`)
+  /map-layers/{type}:
+    get:
+      tags: [Mapa]
+      operationId: getMapLayer
+      summary: Linie warstwy mapy w prostokącie (W1)
+      description: |
+        Ścieżki rowerowe, szlaki piesze i ścieżki leśne z OpenStreetMap. Backend pobiera je z własnego serwera
+        Overpass (dane województwa lubelskiego), upraszcza linie (tolerancja ok. 2 m) i pamięta odpowiedzi
+        w pamięci na kilka godzin. Aplikacja prosi o kafelki na stałej siatce. Gdy backend jest niedostępny
+        (`503 MAP_LAYER_UNAVAILABLE` albo brak połączenia), aplikacja awaryjnie pobiera te same dane
+        z publicznych serwerów Overpass.
+      x-owner: Kacper
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [CYCLE_PATHS, HIKING_TRAILS, FOREST_PATHS]
+        - { name: minLat, in: query, required: true, schema: { type: number, format: double } }
+        - { name: minLng, in: query, required: true, schema: { type: number, format: double } }
+        - { name: maxLat, in: query, required: true, schema: { type: number, format: double } }
+        - name: maxLng
+          in: query
+          required: true
+          description: Prostokąt może mieć najwyżej 0,2 stopnia szerokości geograficznej i 0,3 długości geograficznej
+          schema: { type: number, format: double }
+      responses:
+        '200':
+          description: Linie leżące w prostokącie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapLayerLines'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          description: Serwer Overpass niedostępny (`MAP_LAYER_UNAVAILABLE`)
   /activities:
     post:
       tags: [Aktywności]
@@ -999,6 +1041,20 @@ components:
           description: Kolejne punkty trasy
           items:
             $ref: '#/components/schemas/LatLng'
+    MapLayerLines:
+      type: object
+      required: [lines]
+      properties:
+        lines:
+          type: array
+          description: Każda linia to lista punktów [szerokość, długość] zaokrąglonych do 5 miejsc po przecinku
+          items:
+            type: array
+            items:
+              type: array
+              minItems: 2
+              maxItems: 2
+              items: { type: number, format: double }
     RoutePlan:
       type: object
       required: [distance, durationSeconds, geometry]

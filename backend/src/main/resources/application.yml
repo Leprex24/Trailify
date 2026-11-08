@@ -22,6 +22,11 @@ spring:
 
 server:
   port: 8080
+  # odpowiedzi JSON (np. warstwy mapy) są duże i dobrze się kompresują
+  compression:
+    enabled: true
+    mime-types: application/json
+    min-response-size: 1024
 
 management:
   endpoints:
@@ -42,3 +47,7 @@ supabase:
 routing:
   # silnik tras (docker compose up -d graphhopper); aplikacja nigdy nie łączy się z nim bezpośrednio
   graphhopper-url: ${GRAPHHOPPER_URL:http://localhost:8989}
+
+maplayers:
+  # własny serwer Overpass z danymi OSM (docker compose up -d overpass); aplikacja pobiera warstwy mapy przez backend
+  overpass-url: ${OVERPASS_URL:http://localhost:8081}
