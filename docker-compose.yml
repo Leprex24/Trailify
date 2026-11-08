@@ -48,7 +48,9 @@ services:
     environment:
       OVERPASS_MODE: init
       OVERPASS_META: "no"
-      OVERPASS_PLANET_URL: https://download.geofabrik.de/europe/poland/lubelskie-latest.osm.bz2
+      # Geofabrik nie udostępnia już plików .osm.bz2, więc pobieramy .pbf i zamieniamy go na format Overpass
+      OVERPASS_PLANET_URL: https://download.geofabrik.de/europe/poland/lubelskie-latest.osm.pbf
+      OVERPASS_PLANET_PREPROCESS: "mv /db/planet.osm.bz2 /db/planet.osm.pbf && osmium cat -o /db/planet.osm.bz2 /db/planet.osm.pbf && rm /db/planet.osm.pbf"
       OVERPASS_RULES_LOAD: "10"
       OVERPASS_COMPRESSION: gz
     ports:
