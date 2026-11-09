@@ -15,17 +15,27 @@ private const val EMPTY = """{"type":"FeatureCollection","features":[]}"""
 
 private const val COLOR_START = "#43A047"
 private const val COLOR_END = "#E53935"
-private const val COLOR_MIDDLE = "#6A1B9A"
+private const val COLOR_MIDDLE = "#6C4CF1"
 
 /** Dodaje fioletową linię zaplanowanej trasy i kropki punktów. Wywołać przed warstwami nagrywania, żeby czerwony ślad był na wierzchu. */
 internal fun addPlanLayers(style: Style) {
     style.addSource(GeoJsonSource(PLAN_SOURCE).also { it.setGeoJson(EMPTY) })
     style.addSource(GeoJsonSource(PLAN_POINTS_SOURCE).also { it.setGeoJson(EMPTY) })
+    // biała obwódka pod linią: trasa jest czytelna na każdym tle mapy
+    style.addLayer(
+        LineLayer("trailify-plan-casing-layer", PLAN_SOURCE).withProperties(
+            PropertyFactory.lineColor("#FFFFFF"),
+            PropertyFactory.lineWidth(9.5f),
+            PropertyFactory.lineOpacity(0.9f),
+            PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+            PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+        ),
+    )
     style.addLayer(
         LineLayer("trailify-plan-layer", PLAN_SOURCE).withProperties(
             PropertyFactory.lineColor(COLOR_MIDDLE),
-            PropertyFactory.lineWidth(6f),
-            PropertyFactory.lineOpacity(0.85f),
+            PropertyFactory.lineWidth(5.5f),
+            PropertyFactory.lineOpacity(1f),
             PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
             PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
         ),

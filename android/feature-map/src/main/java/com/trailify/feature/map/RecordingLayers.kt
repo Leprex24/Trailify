@@ -19,18 +19,28 @@ internal const val RECONSTRUCTED_LAYER = "trailify-track-reconstructed-layer"
 private const val EMPTY = """{"type":"FeatureCollection","features":[]}"""
 
 /**
- * Dodaje na wierzch mapy czerwoną linię nagrywanej trasy (fragmenty odtworzone po utracie GPS są
- * pomarańczową linią przerywaną) i niebieską kropkę z pozycją użytkownika.
+ * Dodaje na wierzch mapy pomarańczową linię nagrywanej trasy z białą obwódką (fragmenty odtworzone po utracie GPS są
+ * bursztynową linią przerywaną) i niebieską kropkę z pozycją użytkownika.
  */
 internal fun addRecordingLayers(style: Style) {
     style.addSource(GeoJsonSource(TRACK_SOURCE).also { it.setGeoJson(EMPTY) })
     style.addSource(GeoJsonSource(POSITION_SOURCE).also { it.setGeoJson(EMPTY) })
+    // biała obwódka pod całym śladem (zwykłym i odtworzonym), żeby był czytelny na każdym tle
+    style.addLayer(
+        LineLayer("trailify-track-casing-layer", TRACK_SOURCE).withProperties(
+            PropertyFactory.lineColor("#FFFFFF"),
+            PropertyFactory.lineWidth(9.5f),
+            PropertyFactory.lineOpacity(0.9f),
+            PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+            PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+        ),
+    )
     style.addLayer(
         LineLayer("trailify-track-layer", TRACK_SOURCE)
             .withFilter(Expression.eq(Expression.get("reconstructed"), Expression.literal(false)))
             .withProperties(
-                PropertyFactory.lineColor("#E53935"),
-                PropertyFactory.lineWidth(5f),
+                PropertyFactory.lineColor("#FC4C02"),
+                PropertyFactory.lineWidth(5.5f),
                 PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
                 PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
             ),
@@ -39,8 +49,8 @@ internal fun addRecordingLayers(style: Style) {
         LineLayer(RECONSTRUCTED_LAYER, TRACK_SOURCE)
             .withFilter(Expression.eq(Expression.get("reconstructed"), Expression.literal(true)))
             .withProperties(
-                PropertyFactory.lineColor("#FB8C00"),
-                PropertyFactory.lineWidth(5f),
+                PropertyFactory.lineColor("#FFB300"),
+                PropertyFactory.lineWidth(5.5f),
                 PropertyFactory.lineDasharray(arrayOf(1.5f, 1.5f)),
                 PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
             ),

@@ -1,13 +1,19 @@
 package com.trailify.feature.map
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -17,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.trailify.core.domain.model.ActivityType
@@ -60,19 +67,12 @@ internal fun RecordingPanel(
     modifier: Modifier = Modifier,
     navigation: NavigationUiState? = null,
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        shape = MaterialTheme.shapes.large,
-        shadowElevation = 8.dp,
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    PanelSheet(modifier) {
             when (state.status) {
                 RecordingStatus.IDLE -> IdlePanel(state, selectedType, permissionDenied, actions)
                 RecordingStatus.RECORDING, RecordingStatus.PAUSED -> ActivePanel(state, navigation, actions)
                 RecordingStatus.FINISHED -> FinishedPanel(state, actions)
             }
-        }
     }
 }
 
@@ -83,18 +83,7 @@ private fun IdlePanel(
     permissionDenied: Boolean,
     actions: RecordingActions,
 ) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
-    ) {
-        ActivityType.entries.forEach { type ->
-            FilterChip(
-                selected = type == selectedType,
-                onClick = { actions.onTypeSelected(type) },
-                label = { Text(type.label()) },
-            )
-        }
-    }
+    ActivityTypeSelector(selected = selectedType, onSelected = actions.onTypeSelected)
     val error = startError(state, permissionDenied)
     if (error != null) {
         Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -103,9 +92,36 @@ private fun IdlePanel(
         }
     }
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = actions.onPlan, modifier = Modifier.weight(1f)) { Text("Zaplanuj trasę") }
-        Button(onClick = actions.onStart, modifier = Modifier.weight(1f)) { Text("Start") }
+        OutlinedButton(onClick = actions.onPlan, modifier = Modifier.weight(1f).height(PanelButtonHeight)) {
+            Text("Zaplanuj trasę", maxLines = 1)
+        }
+        Button(onClick = actions.onStart, modifier = Modifier.weight(1f).height(PanelButtonHeight)) { StartLabel("Start") }
     }
+}
+
+/** Rodzaje aktywności jako równe pola na całą szerokość panelu. */
+@Composable
+internal fun ActivityTypeSelector(selected: ActivityType, onSelected: (ActivityType) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ActivityType.entries.forEach { type ->
+            FilterChip(
+                selected = type == selected,
+                onClick = { onSelected(type) },
+                label = {
+                    Text(type.label(), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, maxLines = 1)
+                },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+/** Zawartość przycisku startu: ikona odtwarzania i napis. */
+@Composable
+internal fun StartLabel(text: String) {
+    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+    Text(text, maxLines = 1)
 }
 
 /** Komunikat o błędzie startu nagrywania (brak zgody, awaria) albo null. Wspólny dla panelu nagrywania i planowania. */
@@ -134,9 +150,9 @@ private fun ActivePanel(state: RecordingState, navigation: NavigationUiState?, a
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(
             onClick = if (paused) actions.onResume else actions.onPause,
-            modifier = Modifier.weight(1f),
-        ) { Text(if (paused) "Wznów" else "Pauza") }
-        Button(onClick = actions.onStop, modifier = Modifier.weight(1f)) { Text("Zakończ") }
+            modifier = Modifier.weight(1f).height(PanelButtonHeight),
+        ) { Text(if (paused) "Wznów" else "Pauza", maxLines = 1) }
+        Button(onClick = actions.onStop, modifier = Modifier.weight(1f).height(PanelButtonHeight)) { Text("Zakończ", maxLines = 1) }
     }
 }
 
@@ -145,8 +161,8 @@ private fun FinishedPanel(state: RecordingState, actions: RecordingActions) {
     Text("Zakończono: ${state.type.label()}", style = MaterialTheme.typography.titleMedium)
     MainStats(state)
     SecondaryStats(state, live = false)
-    Button(onClick = actions.onOpenSummary, modifier = Modifier.fillMaxWidth()) { Text("Podsumowanie i zapis") }
-    OutlinedButton(onClick = actions.onDiscard, modifier = Modifier.fillMaxWidth()) { Text("Odrzuć") }
+    Button(onClick = actions.onOpenSummary, modifier = Modifier.fillMaxWidth().height(PanelButtonHeight)) { Text("Podsumowanie i zapis") }
+    OutlinedButton(onClick = actions.onDiscard, modifier = Modifier.fillMaxWidth().height(PanelButtonHeight)) { Text("Odrzuć") }
 }
 
 /** Pozostały dystans do końca zaplanowanej trasy albo ostrzeżenie o zejściu z niej. */

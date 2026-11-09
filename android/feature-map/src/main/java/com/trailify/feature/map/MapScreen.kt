@@ -7,8 +7,10 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.view.Gravity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,12 +21,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -63,8 +71,7 @@ import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 
-// Bezpłatne kafelki wektorowe oparte na danych OpenStreetMap, bez klucza API.
-private const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
+// Style mapy (kafelki wektorowe z danych OpenStreetMap, bez klucza API): patrz MapStyles.kt
 
 // Na start mapa jest wycentrowana na Lublinie.
 private val START_POSITION = CameraPosition.Builder()
@@ -82,15 +89,17 @@ private fun addThematicLayers(style: Style) {
         val source = GeoJsonSource(sourceId(type))
         source.setGeoJson(EMPTY_GEOJSON)
         style.addSource(source)
-        style.addLayer(
-            LineLayer(layerId(type), sourceId(type)).withProperties(
-                PropertyFactory.lineColor(type.color()),
-                PropertyFactory.lineWidth(type.lineWidth()),
-                PropertyFactory.lineOpacity(1f),
-                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
-                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
-            ),
+        val dash = type.dash()
+        val layer = LineLayer(layerId(type), sourceId(type)).withProperties(
+            PropertyFactory.lineColor(type.color()),
+            PropertyFactory.lineWidth(type.lineWidth()),
+            PropertyFactory.lineOpacity(0.9f),
+            // przy kreskowaniu końce okrągłe wydłużałyby kreski i zlewały je w linię ciągłą
+            PropertyFactory.lineCap(if (dash == null) Property.LINE_CAP_ROUND else Property.LINE_CAP_BUTT),
+            PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
         )
+        if (dash != null) layer.setProperties(PropertyFactory.lineDasharray(dash))
+        style.addLayer(layer)
     }
 }
 
@@ -110,6 +119,10 @@ private fun hasFineLocation(context: android.content.Context) =
     ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
 private const val FOLLOW_ZOOM = 15.0
+
+// Kamera jest "na użytkowniku", gdy jej środek jest bliżej niż tyle metrów od jego pozycji.
+private const val CENTERED_METERS = 30.0
+
 
 /**
  * Zakładka START: mapa z warstwami (W1), niebieską kropką z pozycją użytkownika,
@@ -167,6 +180,21 @@ fun MapScreen(
         }
     }
 
+    // Ładowanie stylu mapy: na starcie i po zmianie stylu w menu. Warstwy dodajemy do każdego nowego stylu,
+    // a efekty poniżej (zależne od "style") same wypełniają je danymi.
+    val styleOption = MapStyleChoice.current
+    LaunchedEffect(map, styleOption) {
+        val googleMap = map ?: return@LaunchedEffect
+        style = null
+        googleMap.setStyle(styleOption.url) { loadedStyle ->
+            addThematicLayers(loadedStyle)
+            addPlanLayers(loadedStyle)
+            addRecordingLayers(loadedStyle)
+            style = loadedStyle
+            viewModel.onCameraIdle(googleMap.visibleBox(), googleMap.cameraPosition.zoom)
+        }
+    }
+
     // Za każdym razem, gdy zmieni się lista pobranych linii, odświeżamy źródła na mapie.
     val lines = state.lines
     LaunchedEffect(style, lines) {
@@ -177,7 +205,7 @@ fun MapScreen(
         }
     }
 
-    // Czerwona linia z nagrywanej trasy.
+    // Pomarańczowa linia z nagrywanej trasy.
     val points = recording.points
     // klucz to sama lista: punkty odtworzone po utracie GPS potrafią zmienić linię bez zmiany liczby punktów
     LaunchedEffect(style, points) {
@@ -334,30 +362,34 @@ fun MapScreen(
                                 false
                             }
                         }
-                        googleMap.setStyle(STYLE_URL) { loadedStyle ->
-                            addThematicLayers(loadedStyle)
-                            addPlanLayers(loadedStyle)
-                            addRecordingLayers(loadedStyle)
-                            style = loadedStyle
-                            map = googleMap
-                            viewModel.onCameraIdle(googleMap.visibleBox(), googleMap.cameraPosition.zoom)
-                        }
+                        // kompas (widać go tylko po obróceniu mapy) z lewej, bo z prawej są przyciski sterujące
+                        val margin = (12 * context.resources.displayMetrics.density).toInt()
+                        googleMap.uiSettings.compassGravity = Gravity.TOP or Gravity.START
+                        googleMap.uiSettings.setCompassMargins(margin, margin, margin, margin)
+                        // styl ładuje efekt wyżej, gdy tylko mapa jest gotowa
+                        map = googleMap
                     }
                 }
             },
             modifier = Modifier.fillMaxSize(),
         )
 
+        // Przyciski sterujące mapą razem, w jednej kolumnie przy prawej krawędzi.
         Column(
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .align(Alignment.TopEnd)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             var menuOpen by remember { mutableStateOf(false) }
             Box {
-                FilledTonalButton(onClick = { menuOpen = true }) {
-                    Text(if (state.enabled.isEmpty()) "Warstwy" else "Warstwy (${state.enabled.size})")
+                // Wypełniony na kolor motywu, gdy jakaś warstwa jest włączona.
+                SmallFloatingActionButton(
+                    onClick = { menuOpen = true },
+                    containerColor = if (state.enabled.isEmpty()) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primary,
+                    contentColor = if (state.enabled.isEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimary,
+                ) {
+                    Icon(Icons.Filled.Layers, contentDescription = "Warstwy i styl mapy")
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     MapLayerType.entries.forEach { type ->
@@ -379,10 +411,61 @@ fun MapScreen(
                             onClick = { viewModel.toggleLayer(type) },
                         )
                     }
+                    HorizontalDivider()
+                    Text(
+                        "Styl mapy",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                    MapStyleOption.entries.forEach { option ->
+                        DropdownMenuItem(
+                            leadingIcon = { RadioButton(selected = option == styleOption, onClick = null) },
+                            text = { Text(option.label) },
+                            onClick = { MapStyleChoice.current = option },
+                        )
+                    }
                 }
             }
+            // Pierwsze dotknięcie centruje na użytkowniku, drugie (gdy już jest wycentrowane) ustawia północ u góry.
+            SmallFloatingActionButton(
+                onClick = {
+                    if (!hasLocationPermission) {
+                        permissionLauncher.launch(LOCATION_PERMISSIONS)
+                    } else {
+                        viewModel.following = true
+                        val location = userLocation
+                        val googleMap = map
+                        if (location != null && googleMap != null) {
+                            val user = LatLng(location.latitude, location.longitude)
+                            val camera = googleMap.cameraPosition
+                            val centered = camera.target?.let { it.distanceTo(user) < CENTERED_METERS } == true
+                            val update = if (centered) {
+                                CameraUpdateFactory.newCameraPosition(
+                                    CameraPosition.Builder().target(user).zoom(camera.zoom).bearing(0.0).tilt(0.0).build(),
+                                )
+                            } else {
+                                CameraUpdateFactory.newLatLngZoom(user, maxOf(camera.zoom, FOLLOW_ZOOM))
+                            }
+                            googleMap.animateCamera(update)
+                        }
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary,
+            ) {
+                Icon(Icons.Filled.MyLocation, contentDescription = "Moja pozycja")
+            }
+        }
+
+        // Pasek postępu i komunikaty o warstwach u góry, z miejscem na przyciski z prawej i kompas z lewej.
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .fillMaxWidth()
+                .padding(start = 64.dp, end = 68.dp, top = 12.dp),
+        ) {
             if (state.loading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
             val message = when {
                 state.error != null -> state.error
@@ -413,61 +496,40 @@ fun MapScreen(
             }
         }
 
-        FilledTonalButton(
-            onClick = {
-                if (!hasLocationPermission) {
-                    permissionLauncher.launch(LOCATION_PERMISSIONS)
-                } else {
-                    viewModel.following = true
-                    val location = userLocation
-                    val googleMap = map
-                    if (location != null && googleMap != null) {
-                        val zoom = maxOf(googleMap.cameraPosition.zoom, FOLLOW_ZOOM)
-                        googleMap.animateCamera(
-                            CameraUpdateFactory.newLatLngZoom(LatLng(location.latitude, location.longitude), zoom),
-                        )
-                    }
-                }
-            },
+        // Panel przylega do dolnego paska i wychodzi z przycisku START (ten sam kolor, bez odstępu).
+        Column(
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth(),
         ) {
-            Text("Moja pozycja")
-        }
-
-        if (plan.editing && recording.status == RecordingStatus.IDLE) {
-            PlanPanel(
-                plan = plan,
-                selectedType = selectedType,
-                startError = startError(recording, permissionDenied),
-                permissionDenied = permissionDenied,
-                actions = planActions,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(12.dp),
-            )
-        } else if (plan.routeId != null && recording.status == RecordingStatus.IDLE) {
-            FollowPanel(
-                plan = plan,
-                startError = startError(recording, permissionDenied),
-                permissionDenied = permissionDenied,
-                actions = planActions,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(12.dp),
-            )
-        } else {
-            RecordingPanel(
-                state = recording,
-                selectedType = selectedType,
-                permissionDenied = permissionDenied,
-                actions = actions,
-                navigation = navigation,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(12.dp),
-            )
+            val panelModifier = Modifier
+            if (plan.editing && recording.status == RecordingStatus.IDLE) {
+                PlanPanel(
+                    plan = plan,
+                    selectedType = selectedType,
+                    startError = startError(recording, permissionDenied),
+                    permissionDenied = permissionDenied,
+                    actions = planActions,
+                    modifier = panelModifier,
+                )
+            } else if (plan.routeId != null && recording.status == RecordingStatus.IDLE) {
+                FollowPanel(
+                    plan = plan,
+                    startError = startError(recording, permissionDenied),
+                    permissionDenied = permissionDenied,
+                    actions = planActions,
+                    modifier = panelModifier,
+                )
+            } else {
+                RecordingPanel(
+                    state = recording,
+                    selectedType = selectedType,
+                    permissionDenied = permissionDenied,
+                    actions = actions,
+                    navigation = navigation,
+                    modifier = panelModifier,
+                )
+            }
         }
     }
 }

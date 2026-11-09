@@ -64,7 +64,6 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
-private const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
 private val TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 private val DATE_FORMAT: DateTimeFormatter =
     DateTimeFormatter.ofPattern("d MMMM yyyy, HH:mm", Locale.forLanguageTag("pl-PL")).withZone(ZoneId.systemDefault())
@@ -256,7 +255,7 @@ private fun GapList(gaps: List<GapInfo>, onEdit: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text("Fragmenty bez GPS", style = MaterialTheme.typography.titleMedium)
         Text(
-            "Możesz poprawić przebieg każdego z nich: dotknij pomarańczowej linii na mapie albo wybierz „Zmień”.",
+            "Możesz poprawić przebieg każdego z nich: dotknij przerywanej linii na mapie albo wybierz „Zmień”.",
             style = MaterialTheme.typography.bodySmall,
         )
         gaps.forEachIndexed { index, info ->
@@ -377,7 +376,7 @@ private fun previewLineOf(editor: GapEditorState?, info: GapInfo?): List<DomainL
 private fun TrackPoint.toLatLng() = DomainLatLng(latitude, longitude)
 
 /**
- * Mapa z całą przebytą trasą dopasowaną do ekranu. Dotknięcie pomarańczowej linii otwiera poprawianie tej luki,
+ * Mapa z całą przebytą trasą dopasowaną do ekranu. Dotknięcie przerywanej linii otwiera poprawianie tej luki,
  * a w trybie ręcznym dotknięcie dodaje punkt trasy.
  */
 @Composable
@@ -437,7 +436,7 @@ private fun SummaryMap(
         factory = {
             mapView.also { view ->
                 view.getMapAsync { googleMap ->
-                    googleMap.setStyle(STYLE_URL) { loadedStyle ->
+                    googleMap.setStyle(MapStyleChoice.current.url) { loadedStyle ->
                         addRecordingLayers(loadedStyle)
                         addGapEditLayers(loadedStyle)
                         style = loadedStyle

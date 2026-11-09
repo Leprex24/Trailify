@@ -2,25 +2,17 @@ package com.trailify.app.navigation
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -46,20 +38,6 @@ import com.trailify.feature.routes.RoutesScreen
 import org.koin.compose.koinInject
 import androidx.compose.material3.MaterialTheme
 
-private data class TopLevelDestination(
-    val route: String,
-    val label: String,
-    val icon: ImageVector,
-)
-
-private val topLevelDestinations = listOf(
-    TopLevelDestination(Routes.DISCOVER, "Odkrywaj", Icons.Default.Search),
-    TopLevelDestination(Routes.ROUTES, "Trasy", Icons.Default.Place),
-    TopLevelDestination(Routes.MAP, "START", Icons.Default.PlayArrow),
-    TopLevelDestination(Routes.COMMUNITY, "Społeczność", Icons.Default.Favorite),
-    TopLevelDestination(Routes.PROFILE, "Profil", Icons.Default.Person),
-)
-
 @Composable
 fun TrailifyNavHost() {
     val navController = rememberNavController()
@@ -83,28 +61,21 @@ fun TrailifyNavHost() {
         }
     }
 
+    val openTopLevel: (String) -> Unit = { route ->
+        navController.navigate(route) {
+            popUpTo(Routes.MAP) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     // Zalogowany bez zgody RODO (np. nowe konto Google) najpierw widzi ekran zgody.
     ConsentGate {
+        // Box: przycisk START leży nad Scaffoldem, bo wystaje poza pasek i musi przyjmować dotyk
+        Box(Modifier.fillMaxSize()) {
         Scaffold(
             bottomBar = {
-                if (showBottomBar) {
-                    NavigationBar {
-                        topLevelDestinations.forEach { item ->
-                            NavigationBarItem(
-                                selected = currentRoute == item.route,
-                                onClick = {
-                                    navController.navigate(item.route) {
-                                        popUpTo(Routes.MAP) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                },
-                                icon = { Icon(item.icon, contentDescription = item.label) },
-                                label = { Text(item.label, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelSmall) },
-                            )
-                        }
-                    }
-                }
+                if (showBottomBar) TrailifyBottomBar(currentRoute, openTopLevel)
             },
         ) { innerPadding ->
             NavHost(
@@ -208,6 +179,16 @@ fun TrailifyNavHost() {
                     }
                 }
             }
+        }
+        if (showBottomBar) {
+            StartButton(
+                onClick = { openTopLevel(Routes.MAP) },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = StartBottomPadding),
+            )
+        }
         }
     }
 }
