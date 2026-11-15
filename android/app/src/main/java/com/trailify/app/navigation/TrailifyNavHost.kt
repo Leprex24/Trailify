@@ -27,12 +27,15 @@ import com.trailify.feature.auth.LoginScreen
 import com.trailify.feature.auth.PrivacyPolicyScreen
 import com.trailify.feature.auth.RegisterScreen
 import com.trailify.feature.community.CommunityScreen
+import com.trailify.feature.community.admin.AdminScreen
+import com.trailify.feature.community.poi.PoiFormScreen
 import com.trailify.feature.community.publish.PublishRouteScreen
 import com.trailify.feature.discover.DiscoverScreen
 import com.trailify.feature.discover.RouteDetailsScreen
 import com.trailify.feature.map.ActivitySummaryScreen
 import com.trailify.feature.map.MapScreen
 import com.trailify.feature.profile.AccountScreen
+import com.trailify.feature.profile.ActivityDetailsScreen
 import com.trailify.feature.profile.ProfileScreen
 import com.trailify.feature.routes.RoutesScreen
 import org.koin.compose.koinInject
@@ -133,9 +136,44 @@ fun TrailifyNavHost() {
                         )
                     }
                 }
-                composable(Routes.COMMUNITY) { ScreenSurface { CommunityScreen() } }
+                composable(Routes.COMMUNITY) {
+                    ScreenSurface { CommunityScreen(onProposePoi = { navController.navigate(Routes.PROPOSE_POI) }) }
+                }
+                composable(Routes.PROPOSE_POI) {
+                    ScreenSurface {
+                        PoiFormScreen(asAdmin = false, onDone = { navController.popBackStack() }, onBack = { navController.popBackStack() })
+                    }
+                }
                 composable(Routes.PROFILE) {
-                    ScreenSurface { ProfileScreen(onOpenAccount = { navController.navigate(Routes.ACCOUNT) }) }
+                    ScreenSurface {
+                        ProfileScreen(
+                            onOpenAccount = { navController.navigate(Routes.ACCOUNT) },
+                            onOpenActivity = { navController.navigate(Routes.activityDetails(it)) },
+                            onOpenAdmin = { navController.navigate(Routes.ADMIN) },
+                        )
+                    }
+                }
+                composable(
+                    route = Routes.ACTIVITY_DETAILS,
+                    arguments = listOf(navArgument(Routes.ACTIVITY_ID_ARG) { type = NavType.LongType }),
+                ) { entry ->
+                    ScreenSurface {
+                        ActivityDetailsScreen(
+                            activityId = entry.arguments?.getLong(Routes.ACTIVITY_ID_ARG) ?: 0L,
+                            onPublish = { navController.navigate(Routes.publishRoute(it.id, it.type.name)) },
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                }
+                composable(Routes.ADMIN) {
+                    ScreenSurface {
+                        AdminScreen(onAddPoi = { navController.navigate(Routes.ADMIN_ADD_POI) }, onBack = { navController.popBackStack() })
+                    }
+                }
+                composable(Routes.ADMIN_ADD_POI) {
+                    ScreenSurface {
+                        PoiFormScreen(asAdmin = true, onDone = { navController.popBackStack() }, onBack = { navController.popBackStack() })
+                    }
                 }
 
                 composable(

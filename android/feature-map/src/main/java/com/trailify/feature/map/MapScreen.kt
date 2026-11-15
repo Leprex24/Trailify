@@ -170,7 +170,8 @@ fun MapScreen(
     }
     LifecycleStartEffect(hasLocationPermission) {
         if (hasLocationPermission) viewModel.setWatching(true)
-        onStopOrDispose { viewModel.setWatching(false) }
+        // w parze z setWatching(true) powyżej (źródło pozycji liczy ekrany, które go używają)
+        onStopOrDispose { if (hasLocationPermission) viewModel.setWatching(false) }
     }
     // Przy pierwszym wejściu na mapę pytamy o lokalizację (raz, bez nagabywania).
     LaunchedEffect(Unit) {

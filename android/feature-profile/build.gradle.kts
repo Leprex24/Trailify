@@ -20,6 +20,10 @@ android {
     buildFeatures {
         compose = true
     }
+    // android.util.Log w ViewModelach nie wywraca testów jednostkowych
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -35,5 +39,13 @@ dependencies {
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.androidx.compose)
     implementation(libs.koin.core.viewmodel)
+    // zdjęcia z internetu
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
+    // wybór zdjęć i prośba o lokalizację
+    implementation(libs.androidx.activity.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

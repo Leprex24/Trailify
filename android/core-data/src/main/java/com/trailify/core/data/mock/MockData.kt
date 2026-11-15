@@ -24,7 +24,8 @@ object MockData {
         email = "kacper@example.com",
         displayName = me.displayName,
         avatarUrl = null,
-        role = Role.USER,
+        // ADMIN, żeby na atrapie dało się pokazać panel administratora (W29-W34)
+        role = Role.ADMIN,
         createdAt = Instant.parse("2026-10-01T10:00:00Z"),
         stats = ProfileStats(totalDistance = 42_500.0, activityCount = 7, routeCount = 3, collectedPoiCount = 2),
     )

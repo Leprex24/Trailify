@@ -6,8 +6,11 @@ import com.trailify.core.domain.model.ActivitySummary
 import com.trailify.core.domain.model.ActivityType
 import com.trailify.core.domain.model.Page
 import com.trailify.core.domain.model.PhotoRef
+import com.trailify.core.domain.model.Profile
+import com.trailify.core.domain.model.ProfileStats
 import com.trailify.core.domain.model.Review
 import com.trailify.core.domain.model.ReviewDraft
+import com.trailify.core.domain.model.Role
 import com.trailify.core.domain.model.Route
 import com.trailify.core.domain.model.RouteDraft
 import com.trailify.core.domain.model.RouteQuery
@@ -17,6 +20,7 @@ import com.trailify.core.domain.model.UserSummary
 import com.trailify.core.domain.repository.ActivityRepository
 import com.trailify.core.domain.repository.AuthRepository
 import com.trailify.core.domain.repository.PhotoUploader
+import com.trailify.core.domain.repository.ProfileRepository
 import com.trailify.core.domain.repository.ReviewRepository
 import com.trailify.core.domain.repository.RouteRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -92,6 +96,13 @@ class FakeAuth(userId: String? = ME) : AuthRepository {
 
 class InstantUploader : PhotoUploader {
     override suspend fun upload(imageUri: String) = PhotoRef("me/$imageUri", "https://example.com/$imageUri")
+}
+
+/** Profil zalogowanego: [role] decyduje, czy widać przyciski administratora. */
+class FakeProfiles(var role: Role = Role.USER) : ProfileRepository {
+    override suspend fun getMe() = Profile(ME, "me@example.com", "Ja", null, role, Instant.EPOCH, ProfileStats(0.0, 0, 0, 0))
+    override suspend fun updateMe(displayName: String?, avatarUrl: String?) = getMe()
+    override suspend fun deleteMe() = Unit
 }
 
 const val ME = "me"

@@ -12,8 +12,9 @@ interface UserLocationSource {
     val location: StateFlow<LatLng?>
 
     /**
-     * Włącza lub wyłącza śledzenie pozycji na potrzeby mapy (wywoływane, gdy mapa jest widoczna).
-     * Bez zgody na lokalizację nic nie robi; po przyznaniu zgody trzeba wywołać ponownie.
+     * Włącza lub wyłącza śledzenie pozycji na potrzeby ekranu (wywoływane, gdy mapa jest widoczna).
+     * Każde setWatching(true) ma mieć swoje setWatching(false): kilka ekranów może śledzić naraz.
+     * Bez zgody na lokalizację nic nie robi; po przyznaniu zgody wywołaj false, a potem true.
      */
     fun setWatching(watching: Boolean)
 }

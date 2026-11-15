@@ -6,9 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.trailify.core.domain.model.AppException
 import com.trailify.core.domain.model.Review
 import com.trailify.core.domain.model.ReviewDraft
+import com.trailify.core.domain.model.Role
 import com.trailify.core.domain.repository.ActivityRepository
 import com.trailify.core.domain.repository.AuthRepository
 import com.trailify.core.domain.repository.PhotoUploader
+import com.trailify.core.domain.repository.ProfileRepository
 import com.trailify.core.domain.repository.ReviewRepository
 import com.trailify.core.ui.PhotoItem
 import com.trailify.core.ui.UiState
@@ -41,6 +43,8 @@ data class ReviewsUiState(
     val totalCount: Long = 0,
     val eligibility: ReviewEligibility = ReviewEligibility.CHECKING,
     val currentUserId: String? = null,
+    /** Administrator może usuwać cudze opinie i trasy (W33). */
+    val isAdmin: Boolean = false,
     /** null = arkusz zamknięty. */
     val form: ReviewForm? = null,
     val deletingId: Long? = null,
@@ -61,6 +65,7 @@ class ReviewsViewModel(
     private val activities: ActivityRepository,
     private val auth: AuthRepository,
     private val uploader: PhotoUploader,
+    private val profiles: ProfileRepository,
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(ReviewsUiState())
@@ -81,6 +86,7 @@ class ReviewsViewModel(
                         reviews = UiState.Success(page.items),
                         totalCount = page.totalElements,
                         currentUserId = me,
+                        isAdmin = isAdmin(),
                         eligibility = decideEligibility(me, ownerId, page.items, completedRoute(me)),
                     )
                 }
@@ -187,6 +193,15 @@ class ReviewsViewModel(
                 _ui.update { it.copy(deletingId = null, message = e.toUserMessage()) }
             }
         }
+    }
+
+    /** Rola z profilu; bez sieci zakładamy zwykłego użytkownika (serwer i tak sprawdza uprawnienia). */
+    private suspend fun isAdmin(): Boolean = try {
+        profiles.getMe().role == Role.ADMIN
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        false
     }
 
     /** null = nie udało się sprawdzić (serwer zdecyduje przy wysyłce). */

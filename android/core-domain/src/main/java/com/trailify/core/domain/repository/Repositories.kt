@@ -11,6 +11,7 @@ import com.trailify.core.domain.model.Poi
 import com.trailify.core.domain.model.PoiAdmin
 import com.trailify.core.domain.model.PoiCollectionEntry
 import com.trailify.core.domain.model.PoiDraft
+import com.trailify.core.domain.model.PoiStatus
 import com.trailify.core.domain.model.Profile
 import com.trailify.core.domain.model.Review
 import com.trailify.core.domain.model.ReviewDraft
@@ -79,10 +80,23 @@ interface PoiRepository {
 
 /** /admin/... (tylko rola ADMIN) */
 interface AdminRepository {
-    suspend fun pendingPois(page: Int = 0, size: Int = 20): Page<PoiAdmin>
+    /** Punkty do moderacji, od najnowszego. [status] = null to wszystkie. */
+    suspend fun pois(status: PoiStatus?, page: Int = 0, size: Int = 20): Page<PoiAdmin>
+
+    /** Dodanie punktu bez zgłoszenia: od razu APPROVED. */
+    suspend fun createPoi(draft: PoiDraft): PoiAdmin
+
+    /** Pola null = bez zmian. */
+    suspend fun updatePoi(id: Long, name: String? = null, description: String? = null): PoiAdmin
+    suspend fun deletePoi(id: Long)
     suspend fun approvePoi(id: Long)
     suspend fun rejectPoi(id: Long, reason: String?)
-    suspend fun users(page: Int = 0, size: Int = 20): Page<AdminUser>
-    suspend fun blockUser(id: String)
+
+    /** [query] = fragment e-maila lub nazwy. */
+    suspend fun users(query: String? = null, page: Int = 0, size: Int = 20): Page<AdminUser>
+
+    /** [deleteContent] = usuń też trasy, recenzje i niezatwierdzone zgłoszenia użytkownika. */
+    suspend fun blockUser(id: String, deleteContent: Boolean = false)
     suspend fun unblockUser(id: String)
+    suspend fun deleteUser(id: String)
 }

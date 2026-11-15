@@ -21,6 +21,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.AlertDialog
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -29,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.trailify.core.domain.model.Route
 import com.trailify.core.ui.ErrorBox
+import com.trailify.core.ui.LinePreviewMap
 import com.trailify.core.ui.LoadingBox
 import com.trailify.core.ui.UiState
 import com.trailify.core.ui.formatDistance
@@ -59,6 +64,9 @@ fun RouteDetailsScreen(
 ) {
     LaunchedEffect(routeId) { viewModel.load(routeId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val deleted by viewModel.deleted.collectAsStateWithLifecycle()
+    val deleteError by viewModel.deleteError.collectAsStateWithLifecycle()
+    LaunchedEffect(deleted) { if (deleted) onBack() }
 
     when (val s = state) {
         is UiState.Loading -> LoadingBox(modifier)
@@ -71,6 +79,8 @@ fun RouteDetailsScreen(
                 onFollowRoute()
             },
             onReviewsChanged = { viewModel.refresh(routeId) },
+            onDelete = { viewModel.delete(routeId) },
+            deleteError = deleteError,
             modifier = modifier,
         )
     }
@@ -82,6 +92,8 @@ private fun RouteDetailsContent(
     onBack: () -> Unit,
     onFollow: () -> Unit,
     onReviewsChanged: () -> Unit,
+    onDelete: () -> Unit,
+    deleteError: String?,
     modifier: Modifier = Modifier,
 ) {
     val summary = route.summary
@@ -156,7 +168,7 @@ private fun RouteDetailsContent(
 
         if (route.geometry.size >= 2) {
             item {
-                RouteLineMap(
+                LinePreviewMap(
                     geometry = route.geometry,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -171,6 +183,11 @@ private fun RouteDetailsContent(
             Button(onClick = onFollow, modifier = Modifier.fillMaxWidth().padding(16.dp)) { Text("Przejdź tę trasę") }
         }
 
+        // usuwa właściciel albo administrator (W33); serwer i tak sprawdza uprawnienia
+        if (summary.owner.id == reviews.currentUserId || reviews.isAdmin) {
+            item { DeleteRouteButton(isOwner = summary.owner.id == reviews.currentUserId, error = deleteError, onDelete = onDelete) }
+        }
+
         item {
             ReviewsSection(state = reviews, viewModel = reviewsViewModel, modifier = Modifier.padding(horizontal = 16.dp))
         }
@@ -182,5 +199,30 @@ private fun Stat(label: String, value: String) {
     Column {
         Text(value, style = MaterialTheme.typography.titleMedium)
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun DeleteRouteButton(isOwner: Boolean, error: String?, onDelete: () -> Unit) {
+    var confirm by remember { mutableStateOf(false) }
+    Column(Modifier.padding(horizontal = 16.dp)) {
+        TextButton(onClick = { confirm = true }) {
+            Text(if (isOwner) "Usuń trasę" else "Usuń trasę (administrator)", color = MaterialTheme.colorScheme.error)
+        }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+    }
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text("Usunąć trasę?") },
+            text = { Text("Trasa zniknie z Odkrywaj razem z opiniami i zdjęciami. Tego nie da się cofnąć.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirm = false
+                    onDelete()
+                }) { Text("Usuń", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Anuluj") } },
+        )
     }
 }
