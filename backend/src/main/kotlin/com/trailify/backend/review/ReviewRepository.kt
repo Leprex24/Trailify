@@ -51,11 +51,28 @@ class ReviewRepository(
         }
     }
 
-    /** Czy użytkownik przeszedł trasę: ma zapisaną aktywność z route_id tej trasy. */
+    /**
+     * Czy użytkownik przeszedł trasę: ma zapisaną aktywność z route_id tej trasy, której ślad (z buforem
+     * COMPLETION_TOLERANCE_METERS) pokrywa co najmniej COMPLETION_MIN_COVERAGE długości trasy.
+     */
     fun hasCompletedRoute(userId: UUID, routeId: Long): Boolean =
-        jdbc.sql("select exists(select 1 from activity where user_id = :userId and route_id = :routeId)")
+        jdbc.sql(
+            """
+            select exists(
+                select 1
+                from activity a
+                join route r on r.id = a.route_id
+                where a.user_id = :userId and a.route_id = :routeId
+                  and ST_Length(r.geometry::geography) > 0
+                  and ST_Length(ST_Intersection(r.geometry::geography, ST_Buffer(a.geometry::geography, :toleranceM)))
+                      / ST_Length(r.geometry::geography) >= :minCoverage
+            )
+            """,
+        )
             .param("userId", userId)
             .param("routeId", routeId)
+            .param("toleranceM", COMPLETION_TOLERANCE_METERS)
+            .param("minCoverage", COMPLETION_MIN_COVERAGE)
             .query(Boolean::class.java)
             .single()
 

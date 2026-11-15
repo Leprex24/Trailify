@@ -358,7 +358,8 @@ paths:
       summary: Dodanie oceny i zdjęć do trasy (W20, W21)
       description: |
         Dozwolone tylko, jeśli użytkownik ukończył trasę, czyli ma zapisaną aktywność
-        z `routeId` równym tej trasie. W przeciwnym razie `403` z kodem `ROUTE_NOT_COMPLETED`.
+        z `routeId` równym tej trasie, której ślad leży w promieniu 50 m od co najmniej 80% długości trasy.
+        W przeciwnym razie `403` z kodem `ROUTE_NOT_COMPLETED`.
         Jeden użytkownik może ocenić trasę tylko raz (`409` z kodem `ALREADY_REVIEWED`).
         Właściciel nie ocenia własnej trasy (`403` z kodem `OWN_ROUTE`).
         Klucze zdjęć muszą zaczynać się od identyfikatora użytkownika (jak przy trasach).

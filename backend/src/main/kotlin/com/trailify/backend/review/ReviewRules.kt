@@ -11,6 +11,14 @@ const val CODE_OWN_ROUTE = "OWN_ROUTE"
 const val CODE_ROUTE_NOT_COMPLETED = "ROUTE_NOT_COMPLETED"
 const val CODE_ALREADY_REVIEWED = "ALREADY_REVIEWED"
 
+/**
+ * Trasa jest uznana za przejętą, gdy zapisany ślad aktywności z jej routeId leży w promieniu
+ * [COMPLETION_TOLERANCE_METERS] od co najmniej [COMPLETION_MIN_COVERAGE] długości trasy
+ * (tolerancja na błąd GPS i drobne skróty).
+ */
+const val COMPLETION_TOLERANCE_METERS = 50.0
+const val COMPLETION_MIN_COVERAGE = 0.8
+
 /** Sprawdza treść recenzji poza adnotacjami (zdjęcia w folderze autora, https, bez powtórzeń). */
 fun validateReviewCreate(userId: UUID, request: ReviewCreateRequest): List<ApiFieldError> =
     validatePhotoInputs(userId, request.photos.orEmpty())
@@ -25,7 +33,7 @@ fun reviewRejection(isOwner: Boolean, completedRoute: Boolean, alreadyReviewed: 
     !completedRoute -> ApiException(
         HttpStatus.FORBIDDEN,
         CODE_ROUTE_NOT_COMPLETED,
-        "Trasę można ocenić dopiero po jej przejściu (zapisanej aktywności z tą trasą)",
+        "Trasę można ocenić dopiero po jej przejściu (zapisanej aktywności, której ślad pokrywa co najmniej 80% trasy)",
     )
     else -> null
 }
