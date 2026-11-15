@@ -8,6 +8,7 @@ import com.trailify.core.domain.repository.FollowRequest
 import com.trailify.core.domain.repository.RouteFollowController
 import com.trailify.core.domain.repository.RouteRepository
 import com.trailify.core.ui.UiState
+import com.trailify.core.ui.toUserMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -47,6 +48,28 @@ class RouteDetailsViewModel(
                 throw e
             } catch (e: Exception) {
                 // zostawiamy poprzednie dane, odświeżenie nie jest konieczne
+            }
+        }
+    }
+
+    private val _deleted = MutableStateFlow(false)
+    /** true po usunięciu trasy: ekran wraca do poprzedniego. */
+    val deleted: StateFlow<Boolean> = _deleted.asStateFlow()
+
+    private val _deleteError = MutableStateFlow<String?>(null)
+    val deleteError: StateFlow<String?> = _deleteError.asStateFlow()
+
+    /** Usunięcie trasy przez właściciela albo administratora (W33). */
+    fun delete(routeId: Long) {
+        viewModelScope.launch {
+            _deleteError.value = null
+            try {
+                routes.delete(routeId)
+                _deleted.value = true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _deleteError.value = e.toUserMessage()
             }
         }
     }

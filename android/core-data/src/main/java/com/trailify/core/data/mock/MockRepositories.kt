@@ -17,6 +17,7 @@ import com.trailify.core.domain.model.PoiStatus
 import com.trailify.core.domain.model.Profile
 import com.trailify.core.domain.model.Review
 import com.trailify.core.domain.model.ReviewDraft
+import com.trailify.core.domain.model.Role
 import com.trailify.core.domain.model.Route
 import com.trailify.core.domain.model.RouteDraft
 import com.trailify.core.domain.model.RouteQuery
@@ -301,14 +302,30 @@ class MockReviewRepository : ReviewRepository {
     }
 }
 
+/** Wspólne dane atrapy dla zwykłego użytkownika (MockPoiRepository) i administratora (MockAdminRepository). */
+internal object MockPoiStore {
+    val pois = MockData.pois.map {
+        PoiAdmin(it, PoiStatus.APPROVED, MockData.anna, null, Instant.parse("2026-10-01T10:00:00Z"))
+    }.toMutableList().apply {
+        add(
+            PoiAdmin(
+                poi = Poi(50, "Stary młyn", "Zabytkowy młyn nad rzeką.", 51.2300, 22.5400, null),
+                status = PoiStatus.PENDING,
+                submittedBy = MockData.anna,
+                rejectionReason = null,
+                createdAt = Instant.parse("2026-10-08T09:00:00Z"),
+            ),
+        )
+    }
+    var nextId = 100L
+}
+
 class MockPoiRepository : PoiRepository {
     private val collected = mutableListOf<PoiCollectionEntry>()
-    private val proposed = mutableListOf<PoiAdmin>()
-    private var nextId = 100L
 
     override suspend fun inBounds(box: BoundingBox): List<Poi> {
         fakeNetwork()
-        return MockData.pois.filter {
+        return MockPoiStore.pois.filter { it.status == PoiStatus.APPROVED }.map { it.poi }.filter {
             it.latitude in box.minLat..box.maxLat && it.longitude in box.minLng..box.maxLng
         }
     }
@@ -316,24 +333,24 @@ class MockPoiRepository : PoiRepository {
     override suspend fun propose(draft: PoiDraft): PoiAdmin {
         fakeNetwork()
         val item = PoiAdmin(
-            poi = Poi(nextId++, draft.name, draft.description, draft.latitude, draft.longitude, draft.photo?.url),
+            poi = Poi(MockPoiStore.nextId++, draft.name, draft.description, draft.latitude, draft.longitude, draft.photo?.url),
             status = PoiStatus.PENDING,
             submittedBy = MockData.me,
             rejectionReason = null,
             createdAt = Instant.now(),
         )
-        proposed.add(item)
+        MockPoiStore.pois.add(item)
         return item
     }
 
     override suspend fun collect(poiId: Long, position: LatLng): PoiCollectionEntry {
         fakeNetwork()
-        val poi = MockData.pois.firstOrNull { it.id == poiId }
+        val poi = MockPoiStore.pois.firstOrNull { it.poi.id == poiId && it.status == PoiStatus.APPROVED }?.poi
             ?: throw AppException("NOT_FOUND", "Nie znaleziono punktu")
+        if (collected.any { it.poi.id == poiId }) throw AppException("ALREADY_COLLECTED", "Punkt jest już zebrany")
         if (distanceMeters(position, LatLng(poi.latitude, poi.longitude)) > 50.0) {
             throw AppException("POI_TOO_FAR", "Jesteś zbyt daleko od punktu")
         }
-        collected.firstOrNull { it.poi.id == poiId }?.let { return it }
         val entry = PoiCollectionEntry(poi, Instant.now())
         collected.add(entry)
         return entry
@@ -346,45 +363,83 @@ class MockPoiRepository : PoiRepository {
 }
 
 class MockAdminRepository : AdminRepository {
-    private val pending = mutableListOf(
-        PoiAdmin(
-            poi = Poi(50, "Stary młyn", "Zabytkowy młyn nad rzeką.", 51.2300, 22.5400, null),
-            status = PoiStatus.PENDING,
-            submittedBy = MockData.anna,
-            rejectionReason = null,
-            createdAt = Instant.parse("2026-10-08T09:00:00Z"),
-        ),
-    )
     private val userList = mutableListOf(
         AdminUser(MockData.myProfile, UserStatus.ACTIVE),
+        AdminUser(
+            MockData.myProfile.copy(id = MockData.anna.id, email = "anna@example.com", displayName = "Anna", role = Role.USER),
+            UserStatus.ACTIVE,
+        ),
+        AdminUser(
+            MockData.myProfile.copy(id = MockData.marek.id, email = "marek@example.com", displayName = "Marek", role = Role.USER),
+            UserStatus.BLOCKED,
+        ),
     )
 
-    override suspend fun pendingPois(page: Int, size: Int): Page<PoiAdmin> {
+    override suspend fun pois(status: PoiStatus?, page: Int, size: Int): Page<PoiAdmin> {
         fakeNetwork()
-        return pending.toPage(page, size)
+        return MockPoiStore.pois.filter { status == null || it.status == status }
+            .sortedByDescending { it.createdAt }
+            .toPage(page, size)
+    }
+
+    override suspend fun createPoi(draft: PoiDraft): PoiAdmin {
+        fakeNetwork()
+        val item = PoiAdmin(
+            poi = Poi(MockPoiStore.nextId++, draft.name, draft.description, draft.latitude, draft.longitude, draft.photo?.url),
+            status = PoiStatus.APPROVED,
+            submittedBy = MockData.me,
+            rejectionReason = null,
+            createdAt = Instant.now(),
+        )
+        MockPoiStore.pois.add(item)
+        return item
+    }
+
+    override suspend fun updatePoi(id: Long, name: String?, description: String?): PoiAdmin = changePoi(id) {
+        it.copy(poi = it.poi.copy(name = name ?: it.poi.name, description = description ?: it.poi.description))
+    }
+
+    override suspend fun deletePoi(id: Long) {
+        fakeNetwork()
+        MockPoiStore.pois.removeAll { it.poi.id == id }
     }
 
     override suspend fun approvePoi(id: Long) {
-        fakeNetwork()
-        pending.removeAll { it.poi.id == id }
+        changePoi(id) { it.copy(status = PoiStatus.APPROVED, rejectionReason = null) }
     }
 
     override suspend fun rejectPoi(id: Long, reason: String?) {
-        fakeNetwork()
-        pending.removeAll { it.poi.id == id }
+        changePoi(id) { it.copy(status = PoiStatus.REJECTED, rejectionReason = reason) }
     }
 
-    override suspend fun users(page: Int, size: Int): Page<AdminUser> {
+    override suspend fun users(query: String?, page: Int, size: Int): Page<AdminUser> {
         fakeNetwork()
-        return userList.toPage(page, size)
+        val q = query?.trim().orEmpty()
+        return userList.filter {
+            q.isEmpty() || it.profile.email.contains(q, ignoreCase = true) || it.profile.displayName.contains(q, ignoreCase = true)
+        }.toPage(page, size)
     }
 
-    override suspend fun blockUser(id: String) = setStatus(id, UserStatus.BLOCKED)
+    override suspend fun blockUser(id: String, deleteContent: Boolean) = setStatus(id, UserStatus.BLOCKED)
 
     override suspend fun unblockUser(id: String) = setStatus(id, UserStatus.ACTIVE)
 
+    override suspend fun deleteUser(id: String) {
+        fakeNetwork()
+        userList.removeAll { it.profile.id == id }
+    }
+
+    private suspend fun changePoi(id: Long, change: (PoiAdmin) -> PoiAdmin): PoiAdmin {
+        fakeNetwork()
+        val i = MockPoiStore.pois.indexOfFirst { it.poi.id == id }
+        if (i < 0) throw AppException("NOT_FOUND", "Punkt nie istnieje")
+        MockPoiStore.pois[i] = change(MockPoiStore.pois[i])
+        return MockPoiStore.pois[i]
+    }
+
     private suspend fun setStatus(id: String, status: UserStatus) {
         fakeNetwork()
+        if (id == MockData.me.id) throw AppException("FORBIDDEN", "Nie możesz wykonać tej operacji na własnym koncie")
         val i = userList.indexOfFirst { it.profile.id == id }
         if (i >= 0) userList[i] = userList[i].copy(status = status)
     }

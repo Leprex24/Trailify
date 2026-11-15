@@ -8,5 +8,5 @@ val discoverModule = module {
     viewModel { DiscoverViewModel(get()) }
     viewModel { RouteDetailsViewModel(get(), get()) }
     // routeId i ownerId przychodzą z ekranu (parametersOf), repozytoria z dataModule
-    viewModel { params -> ReviewsViewModel(params.get(), params.get(), get(), get(), get(), get()) }
+    viewModel { params -> ReviewsViewModel(params.get(), params.get(), get(), get(), get(), get(), get()) }
 }

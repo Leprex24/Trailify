@@ -6,6 +6,7 @@ import com.trailify.core.domain.model.Role
 import com.trailify.core.domain.repository.ProfileRepository
 import io.ktor.http.HttpMethod
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -29,22 +30,24 @@ class ApiProfileRepository(private val api: ApiClient) : ProfileRepository {
         api.call(HttpMethod.Delete, "/me")
     }
 
-    private fun parseProfile(text: String): Profile {
-        val json = Json.parseToJsonElement(text).jsonObject
-        val stats = json.getValue("stats").jsonObject
-        return Profile(
-            id = json.getValue("id").jsonPrimitive.content,
-            email = json.getValue("email").jsonPrimitive.content,
-            displayName = json.getValue("displayName").jsonPrimitive.content,
-            avatarUrl = json.strOrNull("avatarUrl"),
-            role = Role.valueOf(json.getValue("role").jsonPrimitive.content),
-            createdAt = Instant.parse(json.getValue("createdAt").jsonPrimitive.content),
-            stats = ProfileStats(
-                totalDistance = stats.doubleOrNull("totalDistance") ?: 0.0,
-                activityCount = stats.intOrNull("activityCount") ?: 0,
-                routeCount = stats.intOrNull("routeCount") ?: 0,
-                collectedPoiCount = stats.intOrNull("collectedPoiCount") ?: 0,
-            ),
-        )
-    }
+    private fun parseProfile(text: String): Profile = parseProfileJson(Json.parseToJsonElement(text).jsonObject)
+}
+
+/** Schemat Profile z openapi.yaml (używany też przez panel administratora). */
+internal fun parseProfileJson(json: JsonObject): Profile {
+    val stats = json.getValue("stats").jsonObject
+    return Profile(
+        id = json.getValue("id").jsonPrimitive.content,
+        email = json.getValue("email").jsonPrimitive.content,
+        displayName = json.getValue("displayName").jsonPrimitive.content,
+        avatarUrl = json.strOrNull("avatarUrl"),
+        role = Role.valueOf(json.getValue("role").jsonPrimitive.content),
+        createdAt = Instant.parse(json.getValue("createdAt").jsonPrimitive.content),
+        stats = ProfileStats(
+            totalDistance = stats.doubleOrNull("totalDistance") ?: 0.0,
+            activityCount = stats.intOrNull("activityCount") ?: 0,
+            routeCount = stats.intOrNull("routeCount") ?: 0,
+            collectedPoiCount = stats.intOrNull("collectedPoiCount") ?: 0,
+        ),
+    )
 }

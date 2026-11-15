@@ -14,6 +14,9 @@ object Routes {
     const val PRIVACY_POLICY = "privacy-policy"
     const val ACCOUNT = "account"
     const val ACTIVITY_SUMMARY = "activity-summary"
+    const val ADMIN = "admin"
+    const val PROPOSE_POI = "poi-form/user"
+    const val ADMIN_ADD_POI = "poi-form/admin"
 
     /** Ekrany dostępne bez logowania - wylogowanie nie przerzuca z nich na LOGIN. */
     val LOGGED_OUT = setOf(LOGIN, REGISTER, PRIVACY_POLICY)
@@ -25,6 +28,8 @@ object Routes {
     const val ACTIVITY_TYPE_ARG = "activityType"
     const val PUBLISH_ROUTE = "publish-route/{$ACTIVITY_ID_ARG}/{$ACTIVITY_TYPE_ARG}"
     fun publishRoute(activityId: Long, activityType: String) = "publish-route/$activityId/$activityType"
+    const val ACTIVITY_DETAILS = "activity/{$ACTIVITY_ID_ARG}"
+    fun activityDetails(id: Long) = "activity/$id"
 
     const val ROUTE_ID_ARG = "routeId"
     const val ROUTE_DETAILS = "route/{$ROUTE_ID_ARG}"

@@ -1,9 +1,11 @@
 package com.trailify.feature.discover.reviews
 
 import com.trailify.core.domain.model.AppException
+import com.trailify.core.domain.model.Role
 import com.trailify.core.ui.UiState
 import com.trailify.feature.discover.FakeActivityRepository
 import com.trailify.feature.discover.FakeAuth
+import com.trailify.feature.discover.FakeProfiles
 import com.trailify.feature.discover.FakeReviewRepository
 import com.trailify.feature.discover.InstantUploader
 import com.trailify.feature.discover.ME
@@ -33,7 +35,7 @@ class ReviewsViewModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     private fun viewModel(ownerId: String = "owner", userId: String? = ME) =
-        ReviewsViewModel(ROUTE, ownerId, reviews, activities, FakeAuth(userId), InstantUploader())
+        ReviewsViewModel(ROUTE, ownerId, reviews, activities, FakeAuth(userId), InstantUploader(), FakeProfiles())
 
     // --- kto może ocenić (czysta funkcja) ---
 
@@ -115,6 +117,15 @@ class ReviewsViewModelTest {
         assertTrue((vm.ui.value.reviews as UiState.Success).data.isEmpty())
         assertEquals(ReviewEligibility.CAN_REVIEW, vm.ui.value.eligibility)
         assertEquals("Recenzja usunięta", vm.ui.value.message)
+    }
+
+    @Test
+    fun administratorWidziUsuwanieCudzychOpinii() {
+        reviews.reviews += review(8, "ktos-inny", ROUTE)
+        val vm = ReviewsViewModel(ROUTE, "owner", reviews, activities, FakeAuth(), InstantUploader(), FakeProfiles(Role.ADMIN))
+        assertTrue(vm.ui.value.isAdmin)
+        vm.deleteReview(8)
+        assertTrue((vm.ui.value.reviews as UiState.Success).data.isEmpty())
     }
 
     private companion object {

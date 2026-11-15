@@ -41,8 +41,6 @@ dependencies {
     implementation(libs.koin.core.viewmodel)
     // wybór zdjęć do recenzji (Photo Picker)
     implementation(libs.androidx.activity.compose)
-    // mapa tras w Odkrywaj i w szczegółach trasy
-    implementation(libs.maplibre.android)
     // zdjęcia z internetu
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)

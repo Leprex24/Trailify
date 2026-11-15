@@ -41,6 +41,9 @@ dependencies {
     implementation(libs.koin.core.viewmodel)
     // wybór zdjęć z galerii (Photo Picker)
     implementation(libs.androidx.activity.compose)
+    // zdjęcia z internetu
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

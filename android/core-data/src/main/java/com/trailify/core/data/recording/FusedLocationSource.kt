@@ -34,7 +34,11 @@ class FusedLocationSource(context: Context) : UserLocationSource {
 
     private enum class Mode { OFF, WATCHING, RECORDING }
 
-    private var watching = false
+    /**
+     * Liczba ekranów, które teraz potrzebują pozycji (mapa START, Społeczność). Licznik zamiast flagi:
+     * przy przejściu między zakładkami stary ekran wyłącza śledzenie dopiero po włączeniu go przez nowy.
+     */
+    private var watchers = 0
     private var recordingListener: ((Location) -> Unit)? = null
     private var mode = Mode.OFF
 
@@ -48,7 +52,7 @@ class FusedLocationSource(context: Context) : UserLocationSource {
     }
 
     override fun setWatching(watching: Boolean) {
-        this.watching = watching
+        watchers = if (watching) watchers + 1 else (watchers - 1).coerceAtLeast(0)
         refresh()
     }
 
@@ -70,7 +74,7 @@ class FusedLocationSource(context: Context) : UserLocationSource {
     private fun refresh() {
         val wanted = when {
             recordingListener != null -> Mode.RECORDING
-            watching -> Mode.WATCHING
+            watchers > 0 -> Mode.WATCHING
             else -> Mode.OFF
         }
         // Ten sam tryb jest już włączony (albo nic nie jest potrzebne) - nic do zrobienia.

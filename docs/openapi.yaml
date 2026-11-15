@@ -576,7 +576,7 @@ paths:
         - name: bbox
           in: query
           required: true
-          description: Obszar w formacie `minLng,minLat,maxLng,maxLat`
+          description: Obszar w formacie `minLng,minLat,maxLng,maxLat`, najwyżej 1 stopień w każdą stronę
           schema:
             type: string
             example: '22.45,51.20,22.65,51.30'
@@ -644,7 +644,7 @@ paths:
       description: |
         Telefon wykrywa bliskość lokalnie (funkcja `nearbyPois`) i wysyła aktualną
         pozycję. Backend sprawdza odległość (maks. 50 m) i odrzuca zbyt odległe pozycje
-        kodem `422 POI_TOO_FAR`. Ponowne zebranie tego samego punktu zwraca `409`.
+        kodem `422 POI_TOO_FAR`. Ponowne zebranie tego samego punktu zwraca `409` z kodem `ALREADY_COLLECTED`.
       x-owner: Mikołaj
       requestBody:
         required: true
@@ -793,6 +793,7 @@ paths:
       tags: [Admin]
       operationId: adminRejectPoi
       summary: Odrzucenie zgłoszonego punktu (W30)
+      description: Zatwierdzonego punktu nie można odrzucić (`409`), można go usunąć.
       x-owner: Mikołaj
       requestBody:
         required: false
@@ -863,7 +864,9 @@ paths:
       summary: Zablokowanie konta (W34)
       description: |
         Użytkownik zostaje wylogowany i nie może się ponownie zalogować. Opcjonalnie
-        można usunąć jego treści naruszające regulamin (`deleteContent`).
+        można usunąć jego treści naruszające regulamin (`deleteContent`: trasy, recenzje
+        i niezatwierdzone zgłoszenia punktów). Nie można zablokować ani usunąć siebie
+        ani innego administratora (`403`).
       x-owner: Mikołaj
       requestBody:
         required: false

@@ -105,6 +105,7 @@ internal fun ReviewsSection(state: ReviewsUiState, viewModel: ReviewsViewModel, 
                     ReviewItem(
                         review = review,
                         isMine = review.user.id == state.currentUserId,
+                        canDelete = review.user.id == state.currentUserId || state.isAdmin,
                         isDeleting = state.deletingId == review.id,
                         onDelete = { toDelete = review },
                     )
@@ -117,7 +118,7 @@ internal fun ReviewsSection(state: ReviewsUiState, viewModel: ReviewsViewModel, 
         AlertDialog(
             onDismissRequest = { toDelete = null },
             title = { Text("Usunąć opinię?") },
-            text = { Text("Twoja ocena i zdjęcia zostaną usunięte z tej trasy.") },
+            text = { Text("Ocena i zdjęcia zostaną usunięte z tej trasy.") },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.deleteReview(review.id)
@@ -137,7 +138,7 @@ private fun Hint(text: String) {
 }
 
 @Composable
-private fun ReviewItem(review: Review, isMine: Boolean, isDeleting: Boolean, onDelete: () -> Unit) {
+private fun ReviewItem(review: Review, isMine: Boolean, canDelete: Boolean, isDeleting: Boolean, onDelete: () -> Unit) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -150,7 +151,7 @@ private fun ReviewItem(review: Review, isMine: Boolean, isDeleting: Boolean, onD
                 Text(review.user.displayName + if (isMine) " (Ty)" else "", style = MaterialTheme.typography.titleSmall)
                 Text(DATE_FORMAT.format(review.createdAt), style = MaterialTheme.typography.bodySmall)
             }
-            if (isMine) {
+            if (canDelete) {
                 if (isDeleting) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 } else {
