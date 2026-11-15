@@ -67,6 +67,16 @@ API_BASE_URL=http://localhost:8080/api/v1
 - Po zmianie pliku: **File → Sync Project with Gradle Files**.
 - Klucza `SUPABASE_SECRET_KEY` (secret / service_role) nigdy nie wpisujemy do aplikacji.
 
+## Dane testowe
+Plik `backend/seed/seed.sql` dodaje 10 opublikowanych tras w Lublinie i okolicy (rower, bieg, spacer,
+ze zdjęciami) oraz 15 ciekawych punktów (13 zatwierdzonych, 2 do moderacji).
+1. Zarejestruj się w aplikacji (trasy dostaje pierwszy administrator, a gdy go nie ma, najstarsze konto).
+2. Supabase → **SQL Editor** → wklej całe `seed.sql` → **Run** (albo `psql` na bazie po migracjach V1–V4).
+3. Skrypt można uruchamiać wielokrotnie: najpierw usuwa dane z poprzedniego uruchomienia.
+
+Plik jest generowany skryptem `backend/seed/generate_seed.py` (tam łatwiej dopisać trasy i punkty):
+`python backend/seed/generate_seed.py backend/seed/seed.sql`.
+
 ## Organizacja pracy
 - `main` jest chroniony, zmiany wchodzą przez Pull Request z przeglądem drugiej osoby.
 - Branche: `feature/<moduł>-<opis>`, np. `feature/auth-login-screen`.
