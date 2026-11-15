@@ -10,6 +10,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,6 +75,9 @@ fun TrailifyNavHost() {
         }
     }
 
+    // Dymek nad paskiem na mapie: przycisk START w pasku go pokazuje i chowa.
+    var startPanelVisible by rememberSaveable { mutableStateOf(true) }
+
     // Zalogowany bez zgody RODO (np. nowe konto Google) najpierw widzi ekran zgody.
     ConsentGate {
         // Box: przycisk START leży nad Scaffoldem, bo wystaje poza pasek i musi przyjmować dotyk
@@ -98,7 +104,10 @@ fun TrailifyNavHost() {
                     ScreenSurface { RoutesScreen(onRouteClick = { navController.navigate(Routes.routeDetails(it)) }) }
                 }
                 composable(Routes.MAP) {
-                    MapScreen(onOpenSummary = { navController.navigate(Routes.ACTIVITY_SUMMARY) })
+                    MapScreen(
+                        onOpenSummary = { navController.navigate(Routes.ACTIVITY_SUMMARY) },
+                        panelVisible = startPanelVisible,
+                    )
                 }
                 composable(Routes.ACTIVITY_SUMMARY) {
                     ScreenSurface {
@@ -220,7 +229,14 @@ fun TrailifyNavHost() {
         }
         if (showBottomBar) {
             StartButton(
-                onClick = { openTopLevel(Routes.MAP) },
+                onClick = {
+                    if (currentRoute == Routes.MAP) {
+                        startPanelVisible = !startPanelVisible
+                    } else {
+                        startPanelVisible = true
+                        openTopLevel(Routes.MAP)
+                    }
+                },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()

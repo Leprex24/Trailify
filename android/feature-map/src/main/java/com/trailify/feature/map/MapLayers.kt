@@ -15,15 +15,16 @@ internal fun MapLayerType.label(): String = when (this) {
 }
 
 // Stonowane kolory i kreski zamiast pełnych, jaskrawych linii: warstwy nie przykrywają mapy.
-internal fun MapLayerType.color(): String = when (this) {
-    MapLayerType.CYCLE_PATHS -> "#3A78B5"
-    MapLayerType.HIKING_TRAILS -> "#B5483F"
-    MapLayerType.FOREST_PATHS -> "#8A6D4B"
+// Na zdjęciach satelitarnych (jesienią brąz na brązie) kolory są jaskrawsze, a linie grubsze i z jasną obwódką.
+internal fun MapLayerType.color(satellite: Boolean = false): String = when (this) {
+    MapLayerType.CYCLE_PATHS -> if (satellite) "#00B8FF" else "#3A78B5"
+    MapLayerType.HIKING_TRAILS -> if (satellite) "#FF1744" else "#B5483F"
+    MapLayerType.FOREST_PATHS -> if (satellite) "#FFEA00" else "#8A6D4B"
 }
 
-internal fun MapLayerType.lineWidth(): Float = when (this) {
-    MapLayerType.FOREST_PATHS -> 2f
-    else -> 3f
+internal fun MapLayerType.lineWidth(satellite: Boolean = false): Float {
+    val width = if (this == MapLayerType.FOREST_PATHS) 2f else 3f
+    return if (satellite) width + 1f else width
 }
 
 /** Wzór kreskowania (w jednostkach szerokości linii) albo null dla linii ciągłej. */

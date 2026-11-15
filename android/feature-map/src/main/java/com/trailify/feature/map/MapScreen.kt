@@ -1,6 +1,9 @@
 package com.trailify.feature.map
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -71,7 +74,7 @@ import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 
-// Style mapy (kafelki wektorowe z danych OpenStreetMap, bez klucza API): patrz MapStyles.kt
+// Podkłady mapy (domyślna mapa OpenStreetMap albo satelita z Geoportalu): patrz MapStyles.kt
 
 // Na start mapa jest wycentrowana na Lublinie.
 private val START_POSITION = CameraPosition.Builder()
@@ -82,18 +85,39 @@ private val START_POSITION = CameraPosition.Builder()
 private fun sourceId(type: MapLayerType) = "trailify-source-${type.name.lowercase()}"
 private fun layerId(type: MapLayerType) = "trailify-layer-${type.name.lowercase()}"
 
-/** Dodaje do stylu mapy puste źródła danych i warstwy linii dla wszystkich warstw tematycznych. */
-private fun addThematicLayers(style: Style) {
+private fun haloId(type: MapLayerType) = "trailify-halo-${type.name.lowercase()}"
+
+/**
+ * Dodaje do stylu mapy puste źródła danych i warstwy linii dla wszystkich warstw tematycznych.
+ * Na satelicie pod liniami leży jasna obwódka (pod wszystkimi liniami naraz, żeby nie zasłaniała sąsiednich).
+ */
+private fun addThematicLayers(style: Style, satellite: Boolean) {
     // Od końca, żeby ścieżki rowerowe (pierwsze na liście) były rysowane na wierzchu.
-    MapLayerType.entries.reversed().forEach { type ->
+    val types = MapLayerType.entries.reversed()
+    types.forEach { type ->
         val source = GeoJsonSource(sourceId(type))
         source.setGeoJson(EMPTY_GEOJSON)
         style.addSource(source)
+    }
+    if (satellite) {
+        types.forEach { type ->
+            style.addLayer(
+                LineLayer(haloId(type), sourceId(type)).withProperties(
+                    PropertyFactory.lineColor("#FFFFFF"),
+                    PropertyFactory.lineWidth(type.lineWidth(satellite = true) + 3f),
+                    PropertyFactory.lineOpacity(0.75f),
+                    PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                    PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                ),
+            )
+        }
+    }
+    types.forEach { type ->
         val dash = type.dash()
         val layer = LineLayer(layerId(type), sourceId(type)).withProperties(
-            PropertyFactory.lineColor(type.color()),
-            PropertyFactory.lineWidth(type.lineWidth()),
-            PropertyFactory.lineOpacity(0.9f),
+            PropertyFactory.lineColor(type.color(satellite)),
+            PropertyFactory.lineWidth(type.lineWidth(satellite)),
+            PropertyFactory.lineOpacity(if (satellite) 1f else 0.9f),
             // przy kreskowaniu końce okrągłe wydłużałyby kreski i zlewały je w linię ciągłą
             PropertyFactory.lineCap(if (dash == null) Property.LINE_CAP_ROUND else Property.LINE_CAP_BUTT),
             PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
@@ -131,6 +155,7 @@ private const val CENTERED_METERS = 30.0
 @Composable
 fun MapScreen(
     onOpenSummary: () -> Unit,
+    panelVisible: Boolean = true,
     modifier: Modifier = Modifier,
     viewModel: MapViewModel = koinViewModel(),
 ) {
@@ -187,8 +212,8 @@ fun MapScreen(
     LaunchedEffect(map, styleOption) {
         val googleMap = map ?: return@LaunchedEffect
         style = null
-        googleMap.setStyle(styleOption.url) { loadedStyle ->
-            addThematicLayers(loadedStyle)
+        styleOption.load(googleMap) { loadedStyle ->
+            addThematicLayers(loadedStyle, satellite = styleOption == MapStyleOption.SATELLITE)
             addPlanLayers(loadedStyle)
             addRecordingLayers(loadedStyle)
             style = loadedStyle
@@ -402,7 +427,7 @@ fun MapScreen(
                                     Box(
                                         modifier = Modifier
                                             .size(12.dp)
-                                            .background(Color(android.graphics.Color.parseColor(type.color())), CircleShape),
+                                            .background(Color(android.graphics.Color.parseColor(type.color(styleOption == MapStyleOption.SATELLITE))), CircleShape),
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(type.label())
@@ -414,7 +439,7 @@ fun MapScreen(
                     }
                     HorizontalDivider()
                     Text(
-                        "Styl mapy",
+                        "Podkład",
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     )
@@ -498,10 +523,23 @@ fun MapScreen(
         }
 
         // Panel przylega do dolnego paska i wychodzi z przycisku START (ten sam kolor, bez odstępu).
-        Column(
+        // Przycisk START w pasku go chowa i pokazuje (wtedy widać napis o źródle mapy w lewym dolnym rogu),
+        // ale w trakcie nagrywania i podczas przechodzenia trasy panel zostaje, bo są w nim sterowanie i statystyki.
+        val showPanel = panelVisible || recording.status != RecordingStatus.IDLE || plan.routeId != null
+        // Płynne wsuwanie i wysuwanie: dymek zjeżdża w dół za pasek i blednie (po schowaniu wypada z kompozycji).
+        val panelProgress by animateFloatAsState(
+            targetValue = if (showPanel) 1f else 0f,
+            animationSpec = tween(durationMillis = 250),
+            label = "panel",
+        )
+        if (panelProgress > 0f) Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .graphicsLayer {
+                    alpha = panelProgress
+                    translationY = (1f - panelProgress) * size.height
+                },
         ) {
             val panelModifier = Modifier
             if (plan.editing && recording.status == RecordingStatus.IDLE) {

@@ -436,7 +436,7 @@ private fun SummaryMap(
         factory = {
             mapView.also { view ->
                 view.getMapAsync { googleMap ->
-                    googleMap.setStyle(MapStyleChoice.current.url) { loadedStyle ->
+                    MapStyleChoice.current.load(googleMap) { loadedStyle ->
                         addRecordingLayers(loadedStyle)
                         addGapEditLayers(loadedStyle)
                         style = loadedStyle
