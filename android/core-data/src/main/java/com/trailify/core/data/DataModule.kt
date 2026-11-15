@@ -23,6 +23,7 @@ import com.trailify.core.data.mock.MockPoiRepository
 import com.trailify.core.data.mock.MockProfileRepository
 import com.trailify.core.data.mock.MockReviewRepository
 import com.trailify.core.data.mock.MockRouteRepository
+import com.trailify.core.data.maplayer.DiskCachedMapLayerRepository
 import com.trailify.core.data.overpass.OverpassMapLayerRepository
 import com.trailify.core.data.recording.FusedLocationSource
 import com.trailify.core.data.recording.PaceProfileStore
@@ -85,8 +86,14 @@ val dataModule = module {
         single<ReviewRepository> { ApiReviewRepository(get()) }
         single<PoiRepository> { ApiPoiRepository(get()) }
         single<AdminRepository> { ApiAdminRepository(get()) }
-        // warstwy mapy przez backend (własny Overpass); publiczne serwery Overpass tylko awaryjnie
-        single<MapLayerRepository> { ApiMapLayerRepository(get(), OverpassMapLayerRepository(androidContext().cacheDir)) }
+        // warstwy mapy przez backend (własny Overpass); publiczne serwery Overpass tylko awaryjnie;
+        // odpowiedzi zapisujemy na dysku, więc odwiedzone okolice działają też offline
+        single<MapLayerRepository> {
+            DiskCachedMapLayerRepository(
+                source = ApiMapLayerRepository(get(), OverpassMapLayerRepository(androidContext().cacheDir)),
+                cacheDir = androidContext().cacheDir,
+            )
+        }
         single<PhotoUploader> {
             SupabasePhotoUploader(
                 context = androidContext(),
