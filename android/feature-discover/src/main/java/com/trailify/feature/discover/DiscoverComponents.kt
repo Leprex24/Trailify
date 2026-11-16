@@ -4,18 +4,23 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -53,40 +58,76 @@ internal fun reviewsLabel(count: Int): String {
     return "$count $word"
 }
 
-/** Karta trasy na liście Odkrywaj: zdjęcie, nazwa, typ, dystans, czas, ocena i cechy trasy. */
+/** Kafelek trasy w rzędzie na górze Odkrywaj: zdjęcie, nazwa, typ, dystans, ocena i przycisk "Zobacz na mapie". */
 @Composable
-internal fun DiscoverRouteCard(route: RouteSummary, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Card(onClick = onClick, modifier = modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            RouteThumbnail(route.thumbnailUrl, size = 88.dp)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    route.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    "${route.activityType.label()} · ${formatDistance(route.totalDistance)} · ${formatDuration(route.durationSeconds)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-                RatingRow(route.averageRating, route.reviewCount, modifier = Modifier.padding(top = 4.dp))
-                val tags = listOfNotNull("Turystyczna".takeIf { route.isTourist }, "Widokowa".takeIf { route.isScenic })
-                if (tags.isNotEmpty()) {
+internal fun RouteTile(
+    route: RouteSummary,
+    isNew: Boolean,
+    onClick: () -> Unit,
+    onShowOnMap: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(onClick = onClick, modifier = modifier.width(TILE_WIDTH)) {
+        Box {
+            RouteTileImage(route.thumbnailUrl, modifier = Modifier.fillMaxWidth().height(TILE_IMAGE_HEIGHT))
+            if (isNew) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+                ) {
                     Text(
-                        tags.joinToString(" · "),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 4.dp),
+                        "Nowość",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                     )
                 }
+            }
+        }
+        Column(modifier = Modifier.padding(12.dp)) {
+            // dwie linie zawsze, żeby wszystkie kafelki w rzędzie miały tę samą wysokość
+            Text(
+                route.name,
+                style = MaterialTheme.typography.titleSmall,
+                minLines = 2,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                "${route.activityType.label()} · ${formatDistance(route.totalDistance)}",
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+            RatingRow(route.averageRating, route.reviewCount, modifier = Modifier.padding(top = 2.dp))
+            Button(
+                onClick = onShowOnMap,
+                enabled = route.startPoint != null,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            ) { Text("Zobacz na mapie", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        }
+    }
+}
+
+/** Zwarta karta zaznaczonej trasy na dole mapy (mapa bywa mała, więc karta nie może jej zasłaniać). */
+@Composable
+internal fun MapRouteCard(route: RouteSummary, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Card(onClick = onClick, modifier = modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.padding(10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            RouteThumbnail(route.thumbnailUrl, size = 64.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(route.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    "Autor: ${route.owner.displayName}",
+                    "${route.activityType.label()} · ${formatDistance(route.totalDistance)} · ${formatDuration(route.durationSeconds)}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 2.dp),
                 )
+                RatingRow(route.averageRating, route.reviewCount, modifier = Modifier.padding(top = 2.dp))
             }
         }
     }
@@ -102,6 +143,23 @@ internal fun RatingRow(average: Double?, count: Int, modifier: Modifier = Modifi
             modifier = Modifier.size(16.dp),
         )
         Text(ratingText(average, count), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 4.dp))
+    }
+}
+
+/** Szerokie zdjęcie kafelka; bez zdjęcia szare pole z ikoną. */
+@Composable
+internal fun RouteTileImage(url: String?, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+        if (url != null) {
+            AsyncImage(
+                model = url,
+                contentDescription = "Zdjęcie trasy",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Icon(Icons.Default.Place, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
+        }
     }
 }
 
@@ -129,3 +187,6 @@ internal fun RouteThumbnail(url: String?, size: Dp, modifier: Modifier = Modifie
 }
 
 internal val STAR_COLOR = Color(0xFFF9A825)
+
+private val TILE_WIDTH = 210.dp
+private val TILE_IMAGE_HEIGHT = 110.dp

@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
@@ -71,9 +72,9 @@ import com.trailify.core.domain.route.RouteListFilters
 import com.trailify.core.domain.route.RouteListSort
 import com.trailify.core.domain.route.RouteVisibility
 import com.trailify.core.domain.route.filterAndSort
-import com.trailify.core.ui.EmptyBox
 import com.trailify.core.ui.ErrorBox
 import com.trailify.core.ui.LoadingBox
+import com.trailify.core.ui.ScreenTitle
 import com.trailify.core.ui.UiState
 import com.trailify.core.ui.formatDistance
 import com.trailify.core.ui.formatDuration
@@ -115,11 +116,7 @@ fun RoutesScreen(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 16.dp, end = 8.dp),
-        ) {
-            Text("Trasy", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+        ScreenTitle("Trasy") {
             IconButton(onClick = onAddRoute) { Icon(Icons.Default.Add, contentDescription = "Zaplanuj nową trasę") }
         }
         PrimaryTabRow(selectedTabIndex = ui.tab.ordinal) {
@@ -346,13 +343,10 @@ private fun EmptyList(tab: RoutesTab, onAddRoute: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (tab == RoutesTab.MINE) {
-            EmptyBox("Nie masz jeszcze własnych tras. Nagraj trasę albo zaplanuj ją na mapie.", modifier = Modifier.height(80.dp))
-            Button(onClick = onAddRoute) { Text("Zaplanuj trasę") }
+            EmptyMessage("Nie masz jeszcze własnych tras. Nagraj trasę albo zaplanuj ją na mapie.")
+            Button(onClick = onAddRoute, modifier = Modifier.padding(top = 16.dp)) { Text("Zaplanuj trasę") }
         } else {
-            EmptyBox(
-                "Nie zapisałeś jeszcze żadnych tras. W zakładce Odkrywaj otwórz trasę i dotknij „Zapisz”.",
-                modifier = Modifier.height(80.dp),
-            )
+            EmptyMessage("Nie zapisałeś jeszcze żadnych tras. W zakładce Odkrywaj otwórz trasę i dotknij „Zapisz”.")
         }
     }
 }
@@ -364,9 +358,15 @@ private fun NoMatches(onClear: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        EmptyBox("Brak tras spełniających kryteria", modifier = Modifier.height(80.dp))
-        OutlinedButton(onClick = onClear) { Text("Wyczyść wyszukiwanie i filtry") }
+        EmptyMessage("Brak tras spełniających kryteria")
+        OutlinedButton(onClick = onClear, modifier = Modifier.padding(top = 16.dp)) { Text("Wyczyść wyszukiwanie i filtry") }
     }
+}
+
+/** Komunikat o pustej liście; wysokość wynika z tekstu, więc nic się nie ucina. */
+@Composable
+private fun EmptyMessage(text: String) {
+    Text(text, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

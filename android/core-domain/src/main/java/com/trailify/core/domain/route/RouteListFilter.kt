@@ -28,6 +28,7 @@ enum class RouteListSort(val label: String) {
     OLDEST("Najstarsze"),
     LONGEST("Najdłuższe"),
     SHORTEST("Najkrótsze"),
+    BEST_RATED("Najwyżej oceniane"),
     NAME("Nazwa A-Z"),
     NEAREST("Najbliżej mnie"),
 }
@@ -87,6 +88,12 @@ fun List<RouteSummary>.filterAndSort(filters: RouteListFilters, userLocation: La
         RouteListSort.OLDEST -> filtered.sortedBy { it.createdAt }
         RouteListSort.LONGEST -> filtered.sortedByDescending { it.totalDistance ?: 0.0 }
         RouteListSort.SHORTEST -> filtered.sortedBy { it.totalDistance ?: Double.MAX_VALUE }
+        // trasy bez ocen na końcu; przy równej ocenie wyżej ta z większą liczbą opinii
+        RouteListSort.BEST_RATED -> filtered.sortedWith(
+            compareByDescending<RouteSummary> { it.averageRating ?: -1.0 }
+                .thenByDescending { it.reviewCount }
+                .thenByDescending { it.createdAt },
+        )
         RouteListSort.NAME -> filtered.sortedWith(Comparator { a, b -> polish.compare(a.name, b.name) })
         RouteListSort.NEAREST ->
             if (userLocation == null) {

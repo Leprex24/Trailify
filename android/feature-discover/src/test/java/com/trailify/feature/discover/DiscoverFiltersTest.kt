@@ -42,9 +42,20 @@ class DiscoverFiltersTest {
     }
 
     @Test
-    fun licznikFiltrowZArkusza() {
-        assertEquals(0, DiscoverFilters(activityTypes = setOf(ActivityType.CYCLING)).sheetFilterCount)
-        assertEquals(2, DiscoverFilters(minRating = 4.0, scenicOnly = true).sheetFilterCount)
+    fun licznikFiltrowLiczyUstawieniaZArkusza() {
+        assertEquals(1, DiscoverFilters(activityTypes = setOf(ActivityType.CYCLING)).filterCount)
+        assertEquals(2, DiscoverFilters(minRating = 4.0, scenicOnly = true).filterCount)
+        assertEquals(1, DiscoverFilters(sort = RouteSort.NEWEST).filterCount)
+        assertEquals(0, DiscoverFilters(text = "Zalew").filterCount) // tekst ma własne pole, nie liczy się
+    }
+
+    @Test
+    fun szukanieJestAktywneGdyJestTekstAlboFiltr() {
+        assertEquals(false, DiscoverFilters().isActive)
+        assertEquals(false, DiscoverFilters(text = "   ").isActive)
+        assertEquals(true, DiscoverFilters(text = "Zalew").isActive)
+        assertEquals(true, DiscoverFilters(touristOnly = true).isActive)
+        assertEquals(true, DiscoverFilters(sort = RouteSort.RATING).isActive)
     }
 
     @Test

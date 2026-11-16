@@ -47,10 +47,14 @@ private const val SELECTED_COLOR = "#E65100"
 private const val MUTED_COLOR = "#9E9E9E"
 private const val USER_COLOR = "#1E88E5"
 private const val TAP_RADIUS_PX = 24f
+private const val FOCUS_ZOOM = 14.0
 
 private const val MARKERS_SOURCE = "trailify-markers"
 private const val MARKERS_LAYER = "trailify-markers-layer"
 private const val LINE_SOURCE = "trailify-line"
+
+/** Prośba o przesunięcie kamery do punktu; [token] odróżnia kolejne prośby o to samo miejsce. */
+data class MapFocus(val position: DomainLatLng, val token: Int)
 
 /** Wygląd punktu na mapie. */
 enum class MarkerKind { PRIMARY, MUTED, USER }
@@ -62,6 +66,7 @@ data class MapMarker(val id: Long, val position: DomainLatLng, val kind: MarkerK
  * Mapa z punktami (np. starty tras, ciekawe punkty). Dotknięcie punktu wywołuje [onSelect] z jego id,
  * dotknięcie pustego miejsca: [onSelect](null) oraz [onMapTap] z pozycją (np. wybór miejsca w formularzu).
  * Kamera obejmuje wszystkie punkty, gdy zmieni się ich lista (nie przy zaznaczaniu).
+ * [focus] przesuwa kamerę do wskazanego miejsca (np. "Zobacz na mapie" przy trasie).
  */
 @Composable
 fun MarkersMap(
@@ -71,6 +76,7 @@ fun MarkersMap(
     modifier: Modifier = Modifier,
     onMapTap: ((DomainLatLng) -> Unit)? = null,
     fitToMarkers: Boolean = true,
+    focus: MapFocus? = null,
 ) {
     val mapView = rememberMapView()
     var style by remember { mutableStateOf<Style?>(null) }
@@ -98,6 +104,14 @@ fun MarkersMap(
             )
         }
         fittedTo = ids
+    }
+
+    LaunchedEffect(map, focus) {
+        val googleMap = map ?: return@LaunchedEffect
+        val target = focus ?: return@LaunchedEffect
+        googleMap.animateCamera(
+            CameraUpdateFactory.newLatLngZoom(LatLng(target.position.latitude, target.position.longitude), FOCUS_ZOOM),
+        )
     }
 
     AndroidView(

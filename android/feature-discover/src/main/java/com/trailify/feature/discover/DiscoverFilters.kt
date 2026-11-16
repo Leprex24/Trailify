@@ -37,9 +37,20 @@ data class DiscoverFilters(
     val scenicOnly: Boolean = false,
     val sort: RouteSort = RouteSort.RECOMMENDED,
 ) {
-    /** Liczba ustawionych filtrów z arkusza "Filtry" (do plakietki na przycisku). */
-    val sheetFilterCount: Int
-        get() = listOf(distance != DistanceRange.ANY, minRating != null, touristOnly, scenicOnly).count { it }
+    /** Liczba ustawień z arkusza "Filtruj" (do plakietki na przycisku); wpisany tekst się nie liczy. */
+    val filterCount: Int
+        get() = listOf(
+            distance != DistanceRange.ANY,
+            minRating != null,
+            touristOnly,
+            scenicOnly,
+            activityTypes.isNotEmpty(),
+            sort != RouteSort.RECOMMENDED,
+        ).count { it }
+
+    /** Czy użytkownik czegoś szuka: wtedy rząd kafelków pokazuje wyniki zamiast wyboru trasy. */
+    val isActive: Boolean
+        get() = text.isNotBlank() || filterCount > 0
 
     fun toQuery(size: Int = PAGE_SIZE): RouteQuery = RouteQuery(
         activityTypes = activityTypes,
@@ -56,8 +67,8 @@ data class DiscoverFilters(
     )
 
     companion object {
-        /** Jedna strona wyników wystarcza na listę i mapę (API pozwala maksymalnie 100). */
-        const val PAGE_SIZE = 50
+        /** Jedna strona wyników wystarcza na kafelki i mapę (API pozwala maksymalnie 100). */
+        const val PAGE_SIZE = 100
 
         /** Limit parametru q w openapi.yaml. */
         const val MAX_QUERY_LENGTH = 100

@@ -4,6 +4,7 @@ import com.trailify.core.domain.model.Activity
 import com.trailify.core.domain.model.ActivityDraft
 import com.trailify.core.domain.model.ActivitySummary
 import com.trailify.core.domain.model.ActivityType
+import com.trailify.core.domain.model.LatLng
 import com.trailify.core.domain.model.Page
 import com.trailify.core.domain.model.PhotoRef
 import com.trailify.core.domain.model.Profile
@@ -23,6 +24,7 @@ import com.trailify.core.domain.repository.PhotoUploader
 import com.trailify.core.domain.repository.ProfileRepository
 import com.trailify.core.domain.repository.ReviewRepository
 import com.trailify.core.domain.repository.RouteRepository
+import com.trailify.core.domain.repository.UserLocationSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.time.Instant
@@ -45,9 +47,12 @@ class FakeRouteRepository : RouteRepository {
     val queries = mutableListOf<RouteQuery>()
     var result: List<RouteSummary> = listOf(summary(1), summary(2))
 
+    /** Gdy ustawiony, decyduje o wynikach zależnie od zapytania (np. pusta okolica, pełna baza). */
+    var handler: ((RouteQuery) -> List<RouteSummary>)? = null
+
     override suspend fun search(query: RouteQuery): Page<RouteSummary> {
         queries += query
-        return pageOf(result)
+        return pageOf(handler?.invoke(query) ?: result)
     }
 
     override suspend fun get(id: Long): Route = error("nieużywane")
@@ -55,6 +60,11 @@ class FakeRouteRepository : RouteRepository {
     override suspend fun update(id: Long, update: RouteUpdate): Route = error("nieużywane")
     override suspend fun delete(id: Long) = error("nieużywane")
     override suspend fun getMine(page: Int, size: Int): Page<RouteSummary> = error("nieużywane")
+}
+
+class FakeUserLocationSource(position: LatLng? = null) : UserLocationSource {
+    override val location: StateFlow<LatLng?> = MutableStateFlow(position)
+    override fun setWatching(watching: Boolean) = Unit
 }
 
 class FakeReviewRepository : ReviewRepository {

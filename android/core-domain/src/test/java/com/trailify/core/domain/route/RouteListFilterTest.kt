@@ -22,6 +22,8 @@ class RouteListFilterTest {
         scenic: Boolean = false,
         start: LatLng? = lublin,
         day: Int = id.toInt(),
+        rating: Double? = null,
+        reviews: Int = 0,
     ) = RouteSummary(
         id = id,
         name = name,
@@ -31,8 +33,8 @@ class RouteListFilterTest {
         isPublic = isPublic,
         totalDistance = distance,
         durationSeconds = 1_800,
-        averageRating = null,
-        reviewCount = 0,
+        averageRating = rating,
+        reviewCount = reviews,
         recommendationScore = null,
         startPoint = start,
         thumbnailUrl = null,
@@ -107,6 +109,18 @@ class RouteListFilterTest {
         assertEquals(listOf(2L, 3L, 1L), ids(routes.filterAndSort(RouteListFilters(sort = RouteListSort.LONGEST), null)))
         assertEquals(listOf(1L, 3L, 2L), ids(routes.filterAndSort(RouteListFilters(sort = RouteListSort.SHORTEST), null)))
         assertEquals(listOf(1L, 2L, 3L), ids(routes.filterAndSort(RouteListFilters(sort = RouteListSort.OLDEST), null)))
+    }
+
+    @Test
+    fun `sortowanie wedlug oceny - bez ocen na koncu, przy remisie wiecej opinii`() {
+        val routes = listOf(
+            route(1, rating = null),
+            route(2, rating = 4.5, reviews = 3),
+            route(3, rating = 4.5, reviews = 10),
+            route(4, rating = 3.0, reviews = 50),
+        )
+        val result = routes.filterAndSort(RouteListFilters(sort = RouteListSort.BEST_RATED), null)
+        assertEquals(listOf(3L, 2L, 4L, 1L), ids(result))
     }
 
     @Test

@@ -60,6 +60,7 @@ import com.trailify.core.ui.LoadingBox
 import com.trailify.core.ui.MapMarker
 import com.trailify.core.ui.MarkerKind
 import com.trailify.core.ui.MarkersMap
+import com.trailify.core.ui.ScreenTitle
 import com.trailify.core.ui.UiState
 import com.trailify.core.ui.formatDistance
 import com.trailify.feature.community.poi.CommunityView
@@ -111,11 +112,7 @@ fun CommunityScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            Text(
-                "Społeczność",
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp),
-            )
+            ScreenTitle("Społeczność")
             Text(
                 "Podejdź do ciekawego punktu na ${COLLECT_RADIUS_METERS.toInt()} m, a trafi do Twojej kolekcji.",
                 style = MaterialTheme.typography.bodyMedium,
