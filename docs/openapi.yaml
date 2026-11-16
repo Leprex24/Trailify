@@ -1944,12 +1944,15 @@ components:
         comment: { type: string, nullable: true }
     FeedPoi:
       type: object
-      required: [id, name, category]
+      required: [id, name, category, latitude, longitude]
       properties:
         id: { type: integer, format: int64 }
         name: { type: string }
         category:
           $ref: '#/components/schemas/PoiCategory'
+        description: { type: string, nullable: true }
+        latitude: { type: number, format: double }
+        longitude: { type: number, format: double }
     FeedPage:
       allOf:
         - $ref: '#/components/schemas/PageMeta'

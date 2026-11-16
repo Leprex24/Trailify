@@ -220,6 +220,7 @@ class FeedRepository(private val jdbc: JdbcClient) {
                    act.duration_seconds as activity_duration, act.avg_pace as activity_pace,
                    rv.rating as review_rating, rv.comment as review_comment,
                    poi.id as poi_id, poi.name as poi_name, poi.category as poi_category,
+                   poi.description as poi_description, poi.latitude as poi_latitude, poi.longitude as poi_longitude,
                    ST_AsText(
                        ST_Simplify(
                            case e.type when 'ACTIVITY' then act.geometry when 'POI_COLLECTED' then null else fr.geometry end,
@@ -283,7 +284,14 @@ class FeedRepository(private val jdbc: JdbcClient) {
                     )
                 },
                 review = rs.getNullableInt("review_rating")?.let { FeedReviewResponse(it, rs.getString("review_comment")) },
-                poi = rs.getNullableLong("poi_id")?.let { FeedPoiResponse(it, rs.getString("poi_name"), rs.getString("poi_category")) },
+                poi = rs.getNullableLong("poi_id")?.let { FeedPoiResponse(
+                        id = it,
+                        name = rs.getString("poi_name"),
+                        category = rs.getString("poi_category"),
+                        description = rs.getString("poi_description"),
+                        latitude = rs.getDouble("poi_latitude"),
+                        longitude = rs.getDouble("poi_longitude"),
+                    ) },
                 geometry = rs.getString("geometry_wkt")?.let(::parseLineStringWkt),
                 photoUrl = rs.getString("photo_url"),
                 likeCount = rs.getInt("like_count"),

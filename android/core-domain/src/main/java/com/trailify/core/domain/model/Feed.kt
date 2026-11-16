@@ -23,7 +23,14 @@ data class FeedActivity(
 
 data class FeedReview(val rating: Int, val comment: String?)
 
-data class FeedPoi(val id: Long, val name: String, val category: PoiCategory)
+data class FeedPoi(
+    val id: Long,
+    val name: String,
+    val category: PoiCategory,
+    val description: String? = null,
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
+)
 
 /**
  * Wpis osi czasu osoby, którą obserwujemy. Wypełnione są tylko pola pasujące do [type]:
@@ -46,6 +53,10 @@ data class FeedItem(
     val commentCount: Int = 0,
     val likedByMe: Boolean = false,
 )
+
+/** Zebrany punkt z wpisu jako zwykły [Poi] (okno punktu, pokazanie na mapie). Zdjęcie punktu to zdjęcie wpisu. */
+fun FeedItem.toPoi(): Poi? =
+    poi?.let { Poi(it.id, it.name, it.description, it.latitude, it.longitude, photoUrl, it.category) }
 
 /** Wpis po polubieniu albo cofnięciu polubienia: znacznik i licznik zmieniają się razem. */
 fun FeedItem.withLiked(liked: Boolean): FeedItem {

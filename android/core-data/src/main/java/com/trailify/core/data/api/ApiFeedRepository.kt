@@ -86,6 +86,9 @@ internal fun parseFeedItem(json: JsonObject): FeedItem {
                 id = it.longOrNull("id") ?: 0L,
                 name = it.getValue("name").jsonPrimitive.content,
                 category = parsePoiCategory(it.strOrNull("category")),
+                description = it.strOrNull("description"),
+                latitude = it.doubleOrNull("latitude") ?: 0.0,
+                longitude = it.doubleOrNull("longitude") ?: 0.0,
             )
         },
         // GeoJSON LineString: współrzędne są [długość, szerokość]

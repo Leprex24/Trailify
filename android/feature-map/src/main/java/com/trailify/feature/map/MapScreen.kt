@@ -277,11 +277,13 @@ fun MapScreen(
     val poiInRange = remember(userLocation, shownPois, poiState.collectedIds) {
         poiInRangeIds(userLocation, shownPois, poiState.collectedIds)
     }
-    LaunchedEffect(style, shownPois, poiState.collectedIds, poiState.selectedId, poiInRange, mapZoom) {
+    // zaznaczony na mapie albo pokazany z innego ekranu ("Zobacz na mapie") jest większy
+    val highlightedPoiId = poiState.selectedId ?: poiState.focusId
+    LaunchedEffect(style, shownPois, poiState.collectedIds, highlightedPoiId, poiInRange, mapZoom) {
         val loadedStyle = style ?: return@LaunchedEffect
         val density = context.resources.displayMetrics.density
         val result = withContext(Dispatchers.Default) {
-            poisGeoJson(shownPois, poiState.collectedIds, poiState.selectedId, poiInRange, mapZoom)
+            poisGeoJson(shownPois, poiState.collectedIds, highlightedPoiId, poiInRange, mapZoom)
         }
         // ikony kółek muszą być w stylu, zanim dane się do nich odwołają
         result.clusterCounts.forEach { ensureClusterImage(loadedStyle, it, density) }
@@ -294,6 +296,16 @@ fun MapScreen(
         viewModel.following = false
         val zoom = maxOf(googleMap.cameraPosition.zoom, POI_FOCUS_ZOOM)
         googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(poi.latitude, poi.longitude), zoom), POI_FOCUS_MS)
+    }
+    // "Zobacz na mapie" z profilu albo osi czasu: kamera przechodzi do punktu, ale okno się nie otwiera.
+    LaunchedEffect(map, poiState.focusId, poiState.focusPending) {
+        val googleMap = map ?: return@LaunchedEffect
+        if (!poiState.focusPending) return@LaunchedEffect
+        val poi = poiState.pois.firstOrNull { it.id == poiState.focusId } ?: return@LaunchedEffect
+        viewModel.following = false
+        val zoom = maxOf(googleMap.cameraPosition.zoom, POI_FOCUS_ZOOM)
+        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(poi.latitude, poi.longitude), zoom), POI_FOCUS_MS)
+        poiViewModel.focusShown()
     }
     LaunchedEffect(poiState.message) {
         if (poiState.message != null) {

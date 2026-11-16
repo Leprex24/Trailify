@@ -20,12 +20,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trailify.core.domain.model.ActivitySummary
+import com.trailify.core.domain.model.Poi
 import com.trailify.core.domain.model.PoiCollectionEntry
 import com.trailify.core.domain.model.PublicProfile
 import com.trailify.core.domain.model.RouteSummary
@@ -61,11 +64,13 @@ fun OtherProfileScreen(
     onOpenFollowing: (userId: String) -> Unit,
     onOpenRoute: (Long) -> Unit,
     onOpenActivity: (Long) -> Unit,
+    onShowPoiOnMap: (Poi) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: OtherProfileViewModel = koinViewModel(key = "user-$userId") { parametersOf(userId) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var tabIndex by rememberSaveable { mutableIntStateOf(0) }
+    var openedPoi by remember { mutableStateOf<PoiCollectionEntry?>(null) }
 
     LaunchedEffect(userId) { viewModel.load() }
 
@@ -103,10 +108,14 @@ fun OtherProfileScreen(
                 when (OtherProfileTab.entries[tabIndex]) {
                     OtherProfileTab.ROUTES -> routesTab(state.routes, onOpenRoute, onRetry = viewModel::load)
                     OtherProfileTab.ACTIVITIES -> activitiesTab(state.activities, onOpenActivity, onRetry = viewModel::load)
-                    OtherProfileTab.POINTS -> pointsOfUser(state.collection, onRetry = viewModel::load)
+                    OtherProfileTab.POINTS -> pointsOfUser(state.collection, onOpenPoi = { openedPoi = it }, onRetry = viewModel::load)
                 }
             }
         }
+    }
+
+    openedPoi?.let { entry ->
+        CollectedPoiDialog(entry, onShowOnMap = { openedPoi = null; onShowPoiOnMap(entry.poi) }, onDismiss = { openedPoi = null })
     }
 }
 
@@ -184,7 +193,11 @@ private fun LazyListScope.activitiesTab(
     }
 }
 
-private fun LazyListScope.pointsOfUser(collection: UiState<List<PoiCollectionEntry>>, onRetry: () -> Unit) {
+private fun LazyListScope.pointsOfUser(
+    collection: UiState<List<PoiCollectionEntry>>,
+    onOpenPoi: (PoiCollectionEntry) -> Unit,
+    onRetry: () -> Unit,
+) {
     when (collection) {
         is UiState.Loading -> item { Hint("Wczytywanie...") }
         is UiState.Error -> item { RetryLine(collection.message, onRetry) }
@@ -192,7 +205,7 @@ private fun LazyListScope.pointsOfUser(collection: UiState<List<PoiCollectionEnt
             item { Hint("Ta osoba nie zebrała jeszcze żadnych punktów.") }
         } else {
             items(collection.data, key = { it.poi.id }) { entry ->
-                PoiRow(entry)
+                PoiRow(entry, onClick = { onOpenPoi(entry) })
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
             }
         }

@@ -27,7 +27,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.trailify.core.domain.model.ActivityType
 import com.trailify.core.domain.model.LatLng
+import com.trailify.core.domain.model.Poi
 import com.trailify.core.domain.repository.AuthRepository
+import com.trailify.core.domain.repository.PoiFocusController
 import com.trailify.feature.auth.ConsentGate
 import com.trailify.feature.auth.LoginScreen
 import com.trailify.feature.auth.PrivacyPolicyScreen
@@ -83,6 +85,13 @@ fun TrailifyNavHost() {
             launchSingleTop = true
             restoreState = true
         }
+    }
+
+    // "Zobacz na mapie" przy ciekawym punkcie (profil, oś czasu): mapa START przechodzi do tego punktu.
+    val poiFocus: PoiFocusController = koinInject()
+    val showPoiOnMap: (Poi) -> Unit = { poi ->
+        poiFocus.focus(poi)
+        openTopLevel(Routes.MAP)
     }
 
     // Dymek nad paskiem na mapie: przycisk START w pasku go pokazuje i chowa.
@@ -176,6 +185,7 @@ fun TrailifyNavHost() {
                             onOpenUser = { navController.navigate(Routes.userProfile(it)) },
                             onOpenRoute = { navController.navigate(Routes.routeDetails(it)) },
                             onOpenActivity = { navController.navigate(Routes.otherActivityDetails(it)) },
+                            onShowPoiOnMap = showPoiOnMap,
                         )
                     }
                 }
@@ -213,6 +223,7 @@ fun TrailifyNavHost() {
                             onProposePoi = { navController.navigate(Routes.PROPOSE_POI) },
                             onOpenFollowers = { navController.navigate(Routes.userList(it, UserListKind.FOLLOWERS.route)) },
                             onOpenFollowing = { navController.navigate(Routes.userList(it, UserListKind.FOLLOWING.route)) },
+                            onShowPoiOnMap = showPoiOnMap,
                         )
                     }
                 }
@@ -229,6 +240,7 @@ fun TrailifyNavHost() {
                             onOpenFollowing = { navController.navigate(Routes.userList(it, UserListKind.FOLLOWING.route)) },
                             onOpenRoute = { navController.navigate(Routes.routeDetails(it)) },
                             onOpenActivity = { navController.navigate(Routes.otherActivityDetails(it)) },
+                            onShowPoiOnMap = showPoiOnMap,
                         )
                     }
                 }

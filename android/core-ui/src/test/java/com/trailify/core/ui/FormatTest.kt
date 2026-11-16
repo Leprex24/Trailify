@@ -23,7 +23,7 @@ class FormatTest {
 
     @Test
     fun `tempo i predkosc`() {
-        assertEquals("5:30 /km", formatPace(5.5))
+        assertEquals("5:30/km", formatPace(5.5))
         assertEquals("-", formatPace(null))
         assertEquals("18,0 km/h", formatSpeed(5.0))
         assertEquals("-", formatSpeed(null))

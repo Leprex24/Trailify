@@ -153,8 +153,8 @@ class ProfileViewModelTest {
 
     @Test
     fun tempoWMinutachNaKilometr() {
-        assertEquals("5:30 /km", formatPace(5.5))
-        assertEquals("10:00 /km", formatPace(10.0))
+        assertEquals("5:30/km", formatPace(5.5))
+        assertEquals("10:00/km", formatPace(10.0))
     }
 
     private inner class Profiles : ProfileRepository {

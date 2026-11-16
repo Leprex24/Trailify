@@ -52,7 +52,7 @@ class MockFeedRepository : FeedRepository {
             type = FeedEventType.POI_COLLECTED,
             createdAt = now.minusSeconds(26 * 3600),
             author = MockData.anna,
-            poi = FeedPoi(3, "Wieża Trynitarska", PoiCategory.VIEWPOINT),
+            poi = FeedPoi(3, "Wieża Trynitarska", PoiCategory.VIEWPOINT, "Punkt widokowy na Stare Miasto, ponad 40 m wysokości.", 51.2470, 22.5665),
             likeCount = 0,
         )
         items += FeedItem(

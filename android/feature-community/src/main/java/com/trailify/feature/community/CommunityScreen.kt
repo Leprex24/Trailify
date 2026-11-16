@@ -30,9 +30,12 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trailify.core.domain.model.FeedEventType
 import com.trailify.core.domain.model.FeedItem
+import com.trailify.core.domain.model.Poi
+import com.trailify.core.domain.model.toPoi
 import com.trailify.core.ui.ErrorBox
 import com.trailify.core.ui.LoadingBox
 import com.trailify.core.ui.PersonAddIcon
+import com.trailify.core.ui.PoiCardDialog
 import com.trailify.core.ui.ScreenTitle
 import com.trailify.feature.community.feed.CommentsSheet
 import com.trailify.feature.community.feed.FeedCard
@@ -54,11 +57,13 @@ fun CommunityScreen(
     onOpenUser: (userId: String) -> Unit,
     onOpenRoute: (routeId: Long) -> Unit,
     onOpenActivity: (activityId: Long) -> Unit,
+    onShowPoiOnMap: (Poi) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: FeedViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var commentsFor by remember { mutableStateOf<FeedItem?>(null) }
+    var openedPoi by remember { mutableStateOf<Poi?>(null) }
     val now = remember(state.items) { Instant.now() }
 
     // po powrocie na zakładkę (np. po zaobserwowaniu kogoś) oś czasu odświeża się od nowa
@@ -83,7 +88,7 @@ fun CommunityScreen(
                 state.error != null && state.items.isEmpty() -> ErrorBox(state.error.orEmpty(), onRetry = viewModel::load)
                 state.items.isEmpty() -> EmptyFeed(onSearchUsers)
                 else -> LazyColumn(
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
                     itemsIndexed(state.items, key = { _, item -> item.id }) { index, item ->
@@ -97,10 +102,12 @@ fun CommunityScreen(
                                         item.route?.let { onOpenRoute(it.id) } ?: onOpenUser(item.author.id)
                                     FeedEventType.ACTIVITY ->
                                         item.activity?.let { onOpenActivity(it.id) } ?: onOpenUser(item.author.id)
-                                    FeedEventType.POI_COLLECTED -> onOpenUser(item.author.id)
+                                    FeedEventType.POI_COLLECTED -> item.toPoi()?.let { openedPoi = it } ?: onOpenUser(item.author.id)
                                 }
                             },
                             onOpenAuthor = { onOpenUser(item.author.id) },
+                            // ukończona trasa: nazwa otwiera trasę, ślad i reszta karty aktywność
+                            onOpenTitle = item.route?.takeIf { item.type == FeedEventType.ACTIVITY }?.let { route -> { onOpenRoute(route.id) } },
                             onLike = { viewModel.toggleLike(item.id) },
                             onComment = { commentsFor = item },
                         )
@@ -119,6 +126,14 @@ fun CommunityScreen(
         }
         state.message?.let {
             Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) { Text(it) }
+        }
+    }
+
+    openedPoi?.let { poi ->
+        PoiCardDialog(poi = poi, onDismiss = { openedPoi = null }) {
+            Button(onClick = { openedPoi = null; onShowPoiOnMap(poi) }, modifier = Modifier.fillMaxWidth()) {
+                Text("Zobacz na mapie")
+            }
         }
     }
 

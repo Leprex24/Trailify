@@ -7,6 +7,7 @@ import com.trailify.core.domain.model.Poi
 import com.trailify.core.domain.model.PoiAdmin
 import com.trailify.core.domain.model.PoiCollectionEntry
 import com.trailify.core.domain.model.PoiDraft
+import com.trailify.core.domain.repository.PoiFocusController
 import com.trailify.core.domain.repository.PoiRepository
 import com.trailify.core.domain.repository.UserLocationSource
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +41,8 @@ class MapPoiViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel(pois: FakePois, location: FakeLocation = FakeLocation()) = MapPoiViewModel(pois, location)
+    private fun viewModel(pois: FakePois, location: FakeLocation = FakeLocation(), focus: FakeFocus = FakeFocus()) =
+        MapPoiViewModel(pois, location, focus)
 
     @Test
     fun kamerasciagaPunktyWidocznegoObszaru() {
@@ -188,6 +190,61 @@ class MapPoiViewModelTest {
         pois.items = listOf(gate, far)
         vm.refresh()
         assertEquals(2, vm.ui.value.pois.size)
+    }
+
+    private class FakeFocus : PoiFocusController {
+        private val _request = MutableStateFlow<Poi?>(null)
+        override val request: StateFlow<Poi?> = _request
+        override fun focus(poi: Poi) {
+            _request.value = poi
+        }
+
+        override fun consume() {
+            _request.value = null
+        }
+    }
+
+    @Test
+    fun zobaczNaMapieDokladaPunktIProsiOPrzejscieKamery() {
+        val focus = FakeFocus()
+        val vm = viewModel(FakePois(emptyList()), focus = focus)
+        focus.focus(far)
+        val state = vm.ui.value
+        assertEquals(listOf(2L), state.pois.map { it.id })
+        assertEquals(2L, state.focusId)
+        assertTrue(state.focusPending)
+        assertNull(state.selectedId) // okno się nie otwiera
+        assertNull(focus.request.value) // prośba odebrana
+    }
+
+    @Test
+    fun poPrzejsciuKameryPunktZostajeWyrozniony() {
+        val focus = FakeFocus()
+        val vm = viewModel(FakePois(emptyList()), focus = focus)
+        focus.focus(far)
+        vm.focusShown()
+        assertFalse(vm.ui.value.focusPending)
+        assertEquals(2L, vm.ui.value.focusId)
+    }
+
+    @Test
+    fun wyborInnegoPunktuKasujeWyroznienie() {
+        val focus = FakeFocus()
+        val vm = viewModel(FakePois(listOf(gate)), focus = focus)
+        focus.focus(far)
+        vm.select(1)
+        assertNull(vm.ui.value.focusId)
+        assertEquals(1L, vm.ui.value.selectedId)
+    }
+
+    @Test
+    fun zobaczNaMapieWlaczaWylaczonaWarstwePunktow() {
+        val focus = FakeFocus()
+        val vm = viewModel(FakePois(emptyList()), focus = focus)
+        vm.toggleEnabled()
+        assertFalse(vm.ui.value.enabled)
+        focus.focus(far)
+        assertTrue(vm.ui.value.enabled)
     }
 
     private class FakeLocation : UserLocationSource {

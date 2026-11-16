@@ -165,10 +165,10 @@ fun ActivityDetailsScreen(
     }
 }
 
-/** 5.5 min/km -> "5:30 /km". */
+/** 5.5 min/km -> "5:30/km". */
 internal fun formatPace(minPerKm: Double): String {
     val totalSeconds = (minPerKm * 60).toInt()
-    return String.format(Locale.ROOT, "%d:%02d /km", totalSeconds / 60, totalSeconds % 60)
+    return String.format(Locale.ROOT, "%d:%02d/km", totalSeconds / 60, totalSeconds % 60)
 }
 
 @Composable

@@ -47,6 +47,7 @@ private val VISUAL_HEIGHT = 150.dp
 /**
  * Jeden wpis osi czasu: po lewej awatar na pionowej linii, po prawej karta z opisem, podglądem (zdjęcie albo obrys trasy)
  * oraz przyciskami Lubię i Skomentuj. [isLast] kończy linię na awatarze ostatniego wpisu.
+ * Dotknięcie karty woła [onOpenItem], awatara i nazwy autora [onOpenAuthor], a tytułu [onOpenTitle] (gdy ustawione).
  */
 @Composable
 internal fun FeedCard(
@@ -55,12 +56,13 @@ internal fun FeedCard(
     isLast: Boolean,
     onOpenItem: () -> Unit,
     onOpenAuthor: () -> Unit,
+    onOpenTitle: (() -> Unit)? = null,
     onLike: () -> Unit,
     onComment: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val text = feedText(item)
-    Row(modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(horizontal = 16.dp)) {
+    Row(modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(horizontal = 8.dp)) {
         // oś czasu: awatar i linia do następnego wpisu
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(44.dp).fillMaxHeight()) {
             UserAvatar(item.author.displayName, item.author.id, item.author.avatarUrl, size = 40.dp, modifier = Modifier.clickable(onClick = onOpenAuthor))
@@ -87,7 +89,11 @@ internal fun FeedCard(
                     )
                 }
                 Text(text.action, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                text.title?.let { Text(it, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 2.dp)) }
+                text.title?.let {
+                    // przy ukończonej trasie nazwa otwiera trasę, a reszta karty (w tym ślad) aktywność
+                    val titleModifier = if (onOpenTitle != null) Modifier.clickable(onClick = onOpenTitle) else Modifier
+                    Text(it, style = MaterialTheme.typography.titleMedium, modifier = titleModifier.padding(top = 2.dp))
+                }
                 text.details?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

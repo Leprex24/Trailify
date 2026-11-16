@@ -16,6 +16,7 @@ import com.trailify.core.data.mock.MockPhotoUploader
 import com.trailify.core.data.mock.MockRoutePlanner
 import com.trailify.core.data.supabase.SupabasePhotoUploader
 import com.trailify.core.domain.repository.PhotoUploader
+import com.trailify.core.domain.repository.PoiFocusController
 import com.trailify.core.domain.repository.RouteFollowController
 import com.trailify.core.domain.repository.RoutePlanner
 import com.trailify.core.data.mock.MockActivityRepository
@@ -134,4 +135,5 @@ val dataModule = module {
     single { RecordingStore(androidContext(), get(), get()) }
     single<RecordingController> { get<RecordingStore>() }
     single<RouteFollowController> { InMemoryRouteFollowController() }
+    single<PoiFocusController> { InMemoryPoiFocusController() }
 }

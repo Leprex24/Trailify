@@ -9,6 +9,7 @@ import com.trailify.core.domain.model.LatLng
 import com.trailify.core.domain.model.Poi
 import com.trailify.core.domain.poi.poisToCollect
 import com.trailify.core.domain.recording.distanceMeters
+import com.trailify.core.domain.repository.PoiFocusController
 import com.trailify.core.domain.repository.PoiRepository
 import com.trailify.core.domain.repository.UserLocationSource
 import com.trailify.core.ui.toUserMessage
@@ -26,6 +27,10 @@ data class MapPoiUiState(
     val pois: List<Poi> = emptyList(),
     val collectedIds: Set<Long> = emptySet(),
     val selectedId: Long? = null,
+    /** Punkt pokazany z innego ekranu ("Zobacz na mapie"): wyróżniony na mapie, bez okna. Znika po dotknięciu mapy. */
+    val focusId: Long? = null,
+    /** Kamera jeszcze nie przeniosła się do [focusId] (ekran ustawia to z powrotem na false po przesunięciu). */
+    val focusPending: Boolean = false,
     /** Mapa jest zbyt oddalona, żeby pobierać punkty. */
     val zoomedOut: Boolean = false,
     /** Komunikat, np. "Zebrano punkt: Brama Krakowska". */
@@ -42,6 +47,7 @@ data class MapPoiUiState(
 class MapPoiViewModel(
     private val pois: PoiRepository,
     private val location: UserLocationSource,
+    private val focus: PoiFocusController,
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(MapPoiUiState())
@@ -64,7 +70,29 @@ class MapPoiViewModel(
         viewModelScope.launch {
             location.location.collect { position -> if (position != null) onPosition(position) }
         }
+        viewModelScope.launch {
+            focus.request.collect { poi ->
+                if (poi != null) {
+                    showOnMap(poi)
+                    focus.consume()
+                }
+            }
+        }
     }
+
+    /** Punkt z innego ekranu: dokładamy go do znanych (mapa jeszcze mogła go nie pobrać) i prosimy kamerę o przejście. */
+    private fun showOnMap(poi: Poi) = _ui.update {
+        it.copy(
+            enabled = true,
+            pois = (it.pois.filterNot { known -> known.id == poi.id } + poi),
+            selectedId = null,
+            focusId = poi.id,
+            focusPending = true,
+        )
+    }
+
+    /** Kamera przeszła do punktu z [MapPoiUiState.focusId]. */
+    fun focusShown() = _ui.update { it.copy(focusPending = false) }
 
     /** Mapa przestała się ruszać: pobieramy punkty widocznego obszaru, jeśli ich jeszcze nie mamy. */
     fun onCameraIdle(box: BoundingBox) {
@@ -86,7 +114,7 @@ class MapPoiViewModel(
         if (enabled) refreshViewport()
     }
 
-    fun select(id: Long?) = _ui.update { it.copy(selectedId = id) }
+    fun select(id: Long?) = _ui.update { it.copy(selectedId = id, focusId = null, focusPending = false) }
 
     fun dismissMessage() = _ui.update { it.copy(message = null) }
 

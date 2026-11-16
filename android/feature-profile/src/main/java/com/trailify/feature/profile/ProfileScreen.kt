@@ -2,6 +2,7 @@ package com.trailify.feature.profile
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,10 +43,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.trailify.core.domain.model.ActivitySummary
+import com.trailify.core.domain.model.Poi
 import com.trailify.core.domain.model.PoiCollectionEntry
 import com.trailify.core.domain.model.Profile
 import com.trailify.core.ui.ErrorBox
 import com.trailify.core.ui.LoadingBox
+import com.trailify.core.ui.PoiCardDialog
 import com.trailify.core.ui.ProfileHeader
 import com.trailify.core.ui.ProfileStat
 import com.trailify.core.ui.UiState
@@ -79,11 +83,13 @@ fun ProfileScreen(
     onProposePoi: () -> Unit,
     onOpenFollowers: (userId: String) -> Unit,
     onOpenFollowing: (userId: String) -> Unit,
+    onShowPoiOnMap: (Poi) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var tabIndex by rememberSaveable { mutableIntStateOf(0) }
+    var openedPoi by remember { mutableStateOf<PoiCollectionEntry?>(null) }
     var showEdit by rememberSaveable { mutableStateOf(false) }
 
     // za każdym wejściem na ekran, np. po powrocie z ustawień albo po nagraniu aktywności
@@ -115,7 +121,7 @@ fun ProfileScreen(
             }
             when (ProfileTab.entries[tabIndex]) {
                 ProfileTab.ACTIVITIES -> activitiesTab(state.activities, onOpenActivity, onRetry = viewModel::load)
-                ProfileTab.POINTS -> pointsTab(state.collection, onProposePoi, onRetry = viewModel::load)
+                ProfileTab.POINTS -> pointsTab(state.collection, onProposePoi, onOpenPoi = { openedPoi = it }, onRetry = viewModel::load)
                 ProfileTab.STATS -> statsTab(
                     state = state,
                     onPreviousMonth = viewModel::previousMonth,
@@ -127,6 +133,10 @@ fun ProfileScreen(
                 )
             }
         }
+    }
+
+    openedPoi?.let { entry ->
+        CollectedPoiDialog(entry, onShowOnMap = { openedPoi = null; onShowPoiOnMap(entry.poi) }, onDismiss = { openedPoi = null })
     }
 
     if (showEdit) {
@@ -182,6 +192,7 @@ private fun LazyListScope.activitiesTab(
 private fun LazyListScope.pointsTab(
     collection: UiState<List<PoiCollectionEntry>>,
     onProposePoi: () -> Unit,
+    onOpenPoi: (PoiCollectionEntry) -> Unit,
     onRetry: () -> Unit,
 ) {
     item {
@@ -197,7 +208,7 @@ private fun LazyListScope.pointsTab(
             item { Hint("Nie masz jeszcze zebranych punktów. Zakładka Społeczność pokaże ciekawe miejsca w okolicy.") }
         } else {
             items(collection.data, key = { it.poi.id }) { entry ->
-                PoiRow(entry)
+                PoiRow(entry, onClick = { onOpenPoi(entry) })
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
             }
         }
@@ -223,11 +234,11 @@ internal fun RetryLine(message: String, onRetry: () -> Unit) {
 }
 
 @Composable
-internal fun PoiRow(entry: PoiCollectionEntry) {
+internal fun PoiRow(entry: PoiCollectionEntry, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Box(
             modifier = Modifier
@@ -251,6 +262,19 @@ internal fun PoiRow(entry: PoiCollectionEntry) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** Okno zebranego punktu (jak na mapie), ale zamiast zbierania jest "Zobacz na mapie". */
+@Composable
+internal fun CollectedPoiDialog(entry: PoiCollectionEntry, onShowOnMap: () -> Unit, onDismiss: () -> Unit) {
+    PoiCardDialog(poi = entry.poi, onDismiss = onDismiss) {
+        Text(
+            "Zebrano ${POINT_DATE_FORMAT.format(entry.collectedAt)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Button(onClick = onShowOnMap, modifier = Modifier.fillMaxWidth()) { Text("Zobacz na mapie") }
     }
 }
 

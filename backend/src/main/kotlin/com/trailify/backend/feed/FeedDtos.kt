@@ -36,7 +36,15 @@ data class FeedActivityResponse(
 
 data class FeedReviewResponse(val rating: Int, val comment: String?)
 
-data class FeedPoiResponse(val id: Long, val name: String, val category: String)
+/** Zebrany punkt: tyle, ile potrzeba do okna punktu i pokazania go na mapie (zdjęcie jest w [FeedItemResponse.photoUrl]). */
+data class FeedPoiResponse(
+    val id: Long,
+    val name: String,
+    val category: String,
+    val description: String?,
+    val latitude: Double,
+    val longitude: Double,
+)
 
 /**
  * Wpis osi czasu (schemat FeedItem). Wypełnione są tylko pola pasujące do [type]:

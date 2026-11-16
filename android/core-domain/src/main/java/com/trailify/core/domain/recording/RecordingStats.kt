@@ -39,6 +39,6 @@ fun currentSpeedMps(points: List<TrackPoint>, now: Instant, windowSeconds: Long 
     return if (seconds >= 3) distance / seconds else null
 }
 
-/** Tempo w minutach na kilometr (np. 5.5 = 5:30 /km). null, gdy stoisz albo brak danych. */
+/** Tempo w minutach na kilometr (np. 5.5 = 5:30/km). null, gdy stoisz albo brak danych. */
 fun paceMinPerKm(speedMps: Double?): Double? =
     if (speedMps == null || speedMps < STANDING_SPEED_MPS) null else 1000.0 / speedMps / 60.0
