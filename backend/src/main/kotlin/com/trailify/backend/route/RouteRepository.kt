@@ -160,6 +160,57 @@ class RouteRepository(
             .query(summaryMapper)
             .list()
 
+    /** Zapisuje trasę użytkownikowi (gwiazdka). Ponowny zapis nic nie zmienia. */
+    fun save(userId: UUID, routeId: Long) {
+        jdbc.sql("insert into saved_route (user_id, route_id) values (:userId, :routeId) on conflict do nothing")
+            .param("userId", userId)
+            .param("routeId", routeId)
+            .update()
+    }
+
+    fun unsave(userId: UUID, routeId: Long) {
+        jdbc.sql("delete from saved_route where user_id = :userId and route_id = :routeId")
+            .param("userId", userId)
+            .param("routeId", routeId)
+            .update()
+    }
+
+    fun isSaved(userId: UUID, routeId: Long): Boolean =
+        jdbc.sql("select exists(select 1 from saved_route where user_id = :userId and route_id = :routeId)")
+            .param("userId", userId)
+            .param("routeId", routeId)
+            .query(Boolean::class.java)
+            .single()
+
+    /** Zapisane trasy, które nadal są publiczne (trasa wycofana przez autora znika z listy, a zapis zostaje). */
+    fun countSaved(userId: UUID): Long =
+        jdbc.sql(
+            """
+            select count(*) from saved_route sv join route r on r.id = sv.route_id
+            where sv.user_id = :userId and r.is_public
+            """.trimIndent(),
+        )
+            .param("userId", userId)
+            .query(RowMapper<Long> { rs, _ -> rs.getLong(1) })
+            .single()
+
+    /** Zapisane trasy użytkownika, od ostatnio zapisanej. */
+    fun listSaved(userId: UUID, page: PageRequest): List<RouteSummaryResponse> =
+        jdbc.sql(
+            """
+            ${selectSummary(distanceColumn = false)}
+            join saved_route sv on sv.route_id = r.id
+            where sv.user_id = :userId and r.is_public
+            order by sv.created_at desc, r.id desc
+            limit :limit offset :offset
+            """.trimIndent(),
+        )
+            .param("userId", userId)
+            .param("limit", page.size)
+            .param("offset", page.offset)
+            .query(summaryMapper)
+            .list()
+
     /** Zmiana metadanych trasy. Geometrii nie da się zmienić. */
     fun update(routeId: Long, update: RouteUpdate) {
         jdbc.sql(

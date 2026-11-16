@@ -5,16 +5,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -66,6 +72,7 @@ fun RouteDetailsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val deleted by viewModel.deleted.collectAsStateWithLifecycle()
     val deleteError by viewModel.deleteError.collectAsStateWithLifecycle()
+    val saved by viewModel.saved.collectAsStateWithLifecycle()
     LaunchedEffect(deleted) { if (deleted) onBack() }
 
     when (val s = state) {
@@ -81,6 +88,8 @@ fun RouteDetailsScreen(
             onReviewsChanged = { viewModel.refresh(routeId) },
             onDelete = { viewModel.delete(routeId) },
             deleteError = deleteError,
+            saved = saved,
+            onToggleSaved = { viewModel.toggleSaved(routeId) },
             modifier = modifier,
         )
     }
@@ -94,6 +103,8 @@ private fun RouteDetailsContent(
     onReviewsChanged: () -> Unit,
     onDelete: () -> Unit,
     deleteError: String?,
+    saved: Boolean?,
+    onToggleSaved: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val summary = route.summary
@@ -107,7 +118,25 @@ private fun RouteDetailsContent(
     LaunchedEffect(reviews.changeCount) { if (reviews.changeCount > 0) onReviewsChanged() }
 
     LazyColumn(modifier = modifier, contentPadding = PaddingValues(bottom = 32.dp)) {
-        item { TextButton(onClick = onBack, modifier = Modifier.padding(8.dp)) { Text("← Wstecz") } }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+                TextButton(onClick = onBack) { Text("← Wstecz") }
+                Spacer(Modifier.weight(1f))
+                // gwiazdka tylko dla cudzych publicznych tras (własne są na liście "Własne")
+                val canSave = summary.isPublic && reviews.currentUserId != null && summary.owner.id != reviews.currentUserId
+                if (canSave && saved != null) {
+                    TextButton(onClick = onToggleSaved) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = null,
+                            tint = if (saved) STAR_COLOR else MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Text(if (saved) "Zapisana" else "Zapisz", modifier = Modifier.padding(start = 6.dp))
+                    }
+                }
+            }
+        }
 
         if (route.photos.isNotEmpty()) {
             item {

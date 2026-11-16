@@ -142,6 +142,27 @@ paths:
                 $ref: '#/components/schemas/RoutePage'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /me/saved-routes:
+    get:
+      tags: [Konto, Trasy]
+      operationId: getMySavedRoutes
+      summary: Trasy zapisane gwiazdką przez zalogowanego użytkownika
+      description: |
+        Publiczne trasy innych osób, od ostatnio zapisanej. Trasa wycofana przez autora
+        (ustawiona jako prywatna) znika z listy.
+      x-owner: Kacper
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Strona tras
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoutePage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /me/poi-collection:
     get:
       tags: [Konto, Ciekawe punkty]
@@ -330,6 +351,54 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /routes/{routeId}/saved:
+    parameters:
+      - $ref: '#/components/parameters/RouteId'
+    get:
+      tags: [Trasy]
+      operationId: getRouteSaved
+      summary: Czy zalogowany użytkownik zapisał tę trasę gwiazdką
+      x-owner: Kacper
+      responses:
+        '200':
+          description: Stan zapisu
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [saved]
+                properties:
+                  saved: { type: boolean }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      tags: [Trasy]
+      operationId: saveRoute
+      summary: Zapisanie trasy gwiazdką
+      description: |
+        Można zapisać publiczną trasę innej osoby. Ponowne zapisanie nic nie zmienia.
+        Własna trasa daje `409` z kodem `OWN_ROUTE`, a cudza prywatna `404`.
+      x-owner: Kacper
+      responses:
+        '204':
+          description: Trasa zapisana
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [Trasy]
+      operationId: unsaveRoute
+      summary: Odznaczenie zapisanej trasy
+      description: Działa zawsze, także gdy trasy nie było na liście zapisanych.
+      x-owner: Kacper
+      responses:
+        '204':
+          description: Trasa nie jest już zapisana
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /routes/{routeId}/reviews:
     parameters:
       - $ref: '#/components/parameters/RouteId'
@@ -358,8 +427,7 @@ paths:
       summary: Dodanie oceny i zdjęć do trasy (W20, W21)
       description: |
         Dozwolone tylko, jeśli użytkownik ukończył trasę, czyli ma zapisaną aktywność
-        z `routeId` równym tej trasie, której ślad leży w promieniu 50 m od co najmniej 80% długości trasy.
-        W przeciwnym razie `403` z kodem `ROUTE_NOT_COMPLETED`.
+        z `routeId` równym tej trasie. W przeciwnym razie `403` z kodem `ROUTE_NOT_COMPLETED`.
         Jeden użytkownik może ocenić trasę tylko raz (`409` z kodem `ALREADY_REVIEWED`).
         Właściciel nie ocenia własnej trasy (`403` z kodem `OWN_ROUTE`).
         Klucze zdjęć muszą zaczynać się od identyfikatora użytkownika (jak przy trasach).

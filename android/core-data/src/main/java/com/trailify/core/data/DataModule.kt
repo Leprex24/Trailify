@@ -23,7 +23,6 @@ import com.trailify.core.data.mock.MockPoiRepository
 import com.trailify.core.data.mock.MockProfileRepository
 import com.trailify.core.data.mock.MockReviewRepository
 import com.trailify.core.data.mock.MockRouteRepository
-import com.trailify.core.data.maplayer.DiskCachedMapLayerRepository
 import com.trailify.core.data.overpass.OverpassMapLayerRepository
 import com.trailify.core.data.recording.FusedLocationSource
 import com.trailify.core.data.recording.PaceProfileStore
@@ -40,6 +39,7 @@ import com.trailify.core.domain.recording.GapReconstructor
 import com.trailify.core.domain.repository.RecordingController
 import com.trailify.core.domain.repository.ReviewRepository
 import com.trailify.core.domain.repository.RouteRepository
+import com.trailify.core.domain.repository.SavedRouteRepository
 import com.trailify.core.domain.repository.UserLocationSource
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
@@ -82,18 +82,14 @@ val dataModule = module {
         single<ProfileRepository> { ApiProfileRepository(get()) }
         single<ActivityRepository> { ApiActivityRepository(get()) }
         single<RoutePlanner> { ApiRoutePlanner(get()) }
-        single<RouteRepository> { ApiRouteRepository(get()) }
+        single { ApiRouteRepository(get()) }
+        single<RouteRepository> { get<ApiRouteRepository>() }
+        single<SavedRouteRepository> { get<ApiRouteRepository>() }
         single<ReviewRepository> { ApiReviewRepository(get()) }
         single<PoiRepository> { ApiPoiRepository(get()) }
         single<AdminRepository> { ApiAdminRepository(get()) }
-        // warstwy mapy przez backend (własny Overpass); publiczne serwery Overpass tylko awaryjnie;
-        // odpowiedzi zapisujemy na dysku, więc odwiedzone okolice działają też offline
-        single<MapLayerRepository> {
-            DiskCachedMapLayerRepository(
-                source = ApiMapLayerRepository(get(), OverpassMapLayerRepository(androidContext().cacheDir)),
-                cacheDir = androidContext().cacheDir,
-            )
-        }
+        // warstwy mapy przez backend (własny Overpass); publiczne serwery Overpass tylko awaryjnie
+        single<MapLayerRepository> { ApiMapLayerRepository(get(), OverpassMapLayerRepository(androidContext().cacheDir)) }
         single<PhotoUploader> {
             SupabasePhotoUploader(
                 context = androidContext(),
@@ -108,7 +104,9 @@ val dataModule = module {
         single<ProfileRepository> { MockProfileRepository() }
         single<ActivityRepository> { MockActivityRepository() }
         single<RoutePlanner> { MockRoutePlanner() }
-        single<RouteRepository> { MockRouteRepository() }
+        single { MockRouteRepository() }
+        single<RouteRepository> { get<MockRouteRepository>() }
+        single<SavedRouteRepository> { get<MockRouteRepository>() }
         single<ReviewRepository> { MockReviewRepository() }
         single<PoiRepository> { MockPoiRepository() }
         single<AdminRepository> { MockAdminRepository() }

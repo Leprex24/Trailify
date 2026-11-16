@@ -7,6 +7,7 @@ import com.trailify.feature.community.communityModule
 import com.trailify.feature.discover.discoverModule
 import com.trailify.feature.map.mapModule
 import com.trailify.feature.profile.profileModule
+import com.trailify.feature.routes.routesModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 
@@ -23,6 +24,7 @@ class TrailifyApp : Application() {
                 discoverModule,
                 mapModule,
                 profileModule,
+                routesModule,
             )
         }
     }

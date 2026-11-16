@@ -11,6 +11,7 @@ import com.trailify.core.domain.model.RouteSummary
 import com.trailify.core.domain.model.RouteUpdate
 import com.trailify.core.domain.model.UserSummary
 import com.trailify.core.domain.repository.RouteRepository
+import com.trailify.core.domain.repository.SavedRouteRepository
 import io.ktor.http.HttpMethod
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -26,8 +27,11 @@ import kotlinx.serialization.json.putJsonObject
 import java.net.URLEncoder
 import java.time.Instant
 
-/** Trasy z naszego backendu (GET/POST /routes, PATCH/DELETE /routes/{id}, GET /me/routes). */
-class ApiRouteRepository(private val api: ApiClient) : RouteRepository {
+/**
+ * Trasy z naszego backendu (GET/POST /routes, PATCH/DELETE /routes/{id}, GET /me/routes)
+ * oraz trasy zapisane gwiazdką (GET /me/saved-routes, GET/PUT/DELETE /routes/{id}/saved).
+ */
+class ApiRouteRepository(private val api: ApiClient) : RouteRepository, SavedRouteRepository {
 
     override suspend fun search(query: RouteQuery): Page<RouteSummary> =
         parsePage(api.call(HttpMethod.Get, "/routes?" + queryString(query)))
@@ -87,6 +91,16 @@ class ApiRouteRepository(private val api: ApiClient) : RouteRepository {
 
     override suspend fun getMine(page: Int, size: Int): Page<RouteSummary> =
         parsePage(api.call(HttpMethod.Get, "/me/routes?page=$page&size=$size"))
+
+    override suspend fun getSaved(page: Int, size: Int): Page<RouteSummary> =
+        parsePage(api.call(HttpMethod.Get, "/me/saved-routes?page=$page&size=$size"))
+
+    override suspend fun isSaved(routeId: Long): Boolean =
+        Json.parseToJsonElement(api.call(HttpMethod.Get, "/routes/$routeId/saved")).jsonObject.boolOrFalse("saved")
+
+    override suspend fun setSaved(routeId: Long, saved: Boolean) {
+        api.call(if (saved) HttpMethod.Put else HttpMethod.Delete, "/routes/$routeId/saved")
+    }
 
     private fun queryString(query: RouteQuery): String {
         val params = mutableListOf<Pair<String, String>>()

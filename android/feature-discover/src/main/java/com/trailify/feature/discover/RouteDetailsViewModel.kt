@@ -7,6 +7,7 @@ import com.trailify.core.domain.model.Route
 import com.trailify.core.domain.repository.FollowRequest
 import com.trailify.core.domain.repository.RouteFollowController
 import com.trailify.core.domain.repository.RouteRepository
+import com.trailify.core.domain.repository.SavedRouteRepository
 import com.trailify.core.ui.UiState
 import com.trailify.core.ui.toUserMessage
 import kotlinx.coroutines.CancellationException
@@ -18,6 +19,7 @@ import kotlinx.coroutines.launch
 class RouteDetailsViewModel(
     private val routes: RouteRepository,
     private val follow: RouteFollowController,
+    private val savedRoutes: SavedRouteRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<UiState<Route>>(UiState.Loading)
@@ -52,6 +54,38 @@ class RouteDetailsViewModel(
         }
     }
 
+    private val _saved = MutableStateFlow<Boolean?>(null)
+
+    /** Czy trasa jest zapisana gwiazdką; null, dopóki nie wiadomo (gwiazdki wtedy nie pokazujemy). */
+    val saved: StateFlow<Boolean?> = _saved.asStateFlow()
+
+    private fun loadSaved(routeId: Long) {
+        viewModelScope.launch {
+            _saved.value = try {
+                savedRoutes.isSaved(routeId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    /** Zapisuje albo odznacza trasę. Zmiana widać od razu, a przy błędzie wraca poprzedni stan. */
+    fun toggleSaved(routeId: Long) {
+        val target = !(_saved.value ?: return)
+        _saved.value = target
+        viewModelScope.launch {
+            try {
+                savedRoutes.setSaved(routeId, target)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _saved.value = !target
+            }
+        }
+    }
+
     private val _deleted = MutableStateFlow(false)
     /** true po usunięciu trasy: ekran wraca do poprzedniego. */
     val deleted: StateFlow<Boolean> = _deleted.asStateFlow()
@@ -77,6 +111,7 @@ class RouteDetailsViewModel(
     fun load(routeId: Long) {
         viewModelScope.launch {
             _state.value = UiState.Loading
+            _saved.value = null
             _state.value = try {
                 UiState.Success(routes.get(routeId))
             } catch (e: CancellationException) {
@@ -84,6 +119,7 @@ class RouteDetailsViewModel(
             } catch (e: Exception) {
                 UiState.Error(e.message ?: "Nie udało się pobrać trasy")
             }
+            if (_state.value is UiState.Success) loadSaved(routeId)
         }
     }
 }

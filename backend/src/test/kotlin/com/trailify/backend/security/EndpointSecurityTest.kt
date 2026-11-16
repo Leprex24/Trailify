@@ -5,6 +5,8 @@ import com.trailify.backend.admin.AdminController
 import com.trailify.backend.admin.AdminService
 import com.trailify.backend.poi.PoiController
 import com.trailify.backend.poi.PoiService
+import com.trailify.backend.route.RouteService
+import com.trailify.backend.route.SavedRouteController
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
@@ -15,14 +17,16 @@ import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.put
 
 /**
  * Kto ma dostęp do czego (SecurityConfig) dla endpointów ciekawych punktów i panelu administratora.
  * Bez bazy: serwisy są atrapami, sprawdzamy tylko odpowiedzi 200/401/403 warstwy HTTP.
  */
-@WebMvcTest(controllers = [PoiController::class, AdminController::class])
+@WebMvcTest(controllers = [PoiController::class, AdminController::class, SavedRouteController::class])
 @Import(SecurityConfig::class, ProfileJwtAuthenticationConverter::class)
 class EndpointSecurityTest {
 
@@ -34,6 +38,9 @@ class EndpointSecurityTest {
 
     @MockitoBean
     private lateinit var admin: AdminService
+
+    @MockitoBean
+    private lateinit var routes: RouteService
 
     @MockitoBean
     private lateinit var profiles: ProfileLookup
@@ -111,5 +118,27 @@ class EndpointSecurityTest {
     fun `odrzucenie punktu dziala bez tresci zadania`() {
         // RejectRequest jest opcjonalny (powód można pominąć)
         mvc.post("/api/v1/admin/pois/1/reject") { with(administrator()) }.andExpect { status { isOk() } }
+    }
+
+    // --- zapisane trasy (gwiazdka): wszystko wymaga logowania ---
+
+    @Test
+    fun `zapisanie trasy bez tokena daje 401`() {
+        mvc.put("/api/v1/routes/1/saved").andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `odznaczenie trasy bez tokena daje 401`() {
+        mvc.delete("/api/v1/routes/1/saved").andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `stan zapisu trasy bez tokena daje 401`() {
+        mvc.get("/api/v1/routes/1/saved").andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `lista zapisanych tras bez tokena daje 401`() {
+        mvc.get("/api/v1/me/saved-routes").andExpect { status { isUnauthorized() } }
     }
 }

@@ -101,7 +101,16 @@ fun TrailifyNavHost() {
                     ScreenSurface { DiscoverScreen(onRouteClick = { navController.navigate(Routes.routeDetails(it)) }) }
                 }
                 composable(Routes.ROUTES) {
-                    ScreenSurface { RoutesScreen(onRouteClick = { navController.navigate(Routes.routeDetails(it)) }) }
+                    ScreenSurface {
+                        RoutesScreen(
+                            onRouteClick = { navController.navigate(Routes.routeDetails(it)) },
+                            // "+" prowadzi na mapę, gdzie można zaplanować trasę (dymek START jest wtedy pokazany)
+                            onAddRoute = {
+                                startPanelVisible = true
+                                openTopLevel(Routes.MAP)
+                            },
+                        )
+                    }
                 }
                 composable(Routes.MAP) {
                     MapScreen(

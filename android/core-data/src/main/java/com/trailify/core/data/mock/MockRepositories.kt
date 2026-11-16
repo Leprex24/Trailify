@@ -33,6 +33,7 @@ import com.trailify.core.domain.repository.PoiRepository
 import com.trailify.core.domain.repository.ProfileRepository
 import com.trailify.core.domain.repository.ReviewRepository
 import com.trailify.core.domain.repository.RouteRepository
+import com.trailify.core.domain.repository.SavedRouteRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -115,9 +116,12 @@ class MockProfileRepository : ProfileRepository {
     }
 }
 
-class MockRouteRepository : RouteRepository {
+class MockRouteRepository : RouteRepository, SavedRouteRepository {
     private val routes = MockData.routes.toMutableList()
     private var nextId = 100L
+
+    // na start dwie cudze trasy są zapisane, żeby lista "Zapisane" nie była pusta
+    private val savedIds = mutableSetOf(1L, 2L)
 
     override suspend fun search(query: RouteQuery): Page<RouteSummary> {
         fakeNetwork()
@@ -215,6 +219,29 @@ class MockRouteRepository : RouteRepository {
         return routes.map { it.summary }.filter { it.owner.id == MockData.me.id }
             .sortedByDescending { it.createdAt }
             .toPage(page, size)
+    }
+
+    override suspend fun getSaved(page: Int, size: Int): Page<RouteSummary> {
+        fakeNetwork()
+        return routes.map { it.summary }.filter { it.id in savedIds && it.isPublic }
+            .sortedByDescending { it.createdAt }
+            .toPage(page, size)
+    }
+
+    override suspend fun isSaved(routeId: Long): Boolean {
+        fakeNetwork()
+        return routeId in savedIds
+    }
+
+    override suspend fun setSaved(routeId: Long, saved: Boolean) {
+        fakeNetwork()
+        if (!saved) {
+            savedIds.remove(routeId)
+            return
+        }
+        val route = routes.firstOrNull { it.summary.id == routeId } ?: throw AppException("NOT_FOUND", "Nie znaleziono trasy")
+        if (route.summary.owner.id == MockData.me.id) throw AppException("OWN_ROUTE", "Własnych tras nie trzeba zapisywać")
+        savedIds.add(routeId)
     }
 }
 

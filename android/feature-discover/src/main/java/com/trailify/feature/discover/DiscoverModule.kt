@@ -6,7 +6,7 @@ import org.koin.dsl.module
 
 val discoverModule = module {
     viewModel { DiscoverViewModel(get()) }
-    viewModel { RouteDetailsViewModel(get(), get()) }
+    viewModel { RouteDetailsViewModel(get(), get(), get()) }
     // routeId i ownerId przychodzą z ekranu (parametersOf), repozytoria z dataModule
     viewModel { params -> ReviewsViewModel(params.get(), params.get(), get(), get(), get(), get(), get()) }
 }

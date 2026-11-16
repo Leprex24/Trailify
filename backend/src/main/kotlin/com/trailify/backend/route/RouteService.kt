@@ -64,6 +64,22 @@ class RouteService(
     fun listMine(userId: UUID, page: PageRequest): PageResponse<RouteSummaryResponse> =
         pageOf(page, repository.countByUser(userId), repository.listByUser(userId, page))
 
+    /** Zapisuje (gwiazdka) albo odznacza trasę. Zapisać można publiczną trasę innej osoby; odznaczenie zawsze działa. */
+    fun setSaved(user: ProfileRecord, routeId: Long, saved: Boolean) {
+        if (!saved) {
+            repository.unsave(user.id, routeId)
+            return
+        }
+        val route = get(user, routeId)
+        saveRejection(isOwner = route.summary.owner.id == user.id.toString())?.let { throw it }
+        repository.save(user.id, routeId)
+    }
+
+    fun isSaved(userId: UUID, routeId: Long): Boolean = repository.isSaved(userId, routeId)
+
+    fun listSaved(userId: UUID, page: PageRequest): PageResponse<RouteSummaryResponse> =
+        pageOf(page, repository.countSaved(userId), repository.listSaved(userId, page))
+
     fun update(user: ProfileRecord, routeId: Long, body: Map<String, Any?>): RouteResponse {
         val update = parseRouteUpdate(body)
         val route = repository.findDetails(routeId) ?: notFound()
