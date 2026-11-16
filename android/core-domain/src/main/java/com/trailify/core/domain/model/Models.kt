@@ -35,6 +35,8 @@ data class ProfileStats(
     val activityCount: Int,
     val routeCount: Int,
     val collectedPoiCount: Int,
+    val followerCount: Int = 0,
+    val followingCount: Int = 0,
 )
 
 data class Profile(
@@ -45,6 +47,33 @@ data class Profile(
     val role: Role,
     val createdAt: Instant,
     val stats: ProfileStats,
+    /** Zdjęcie w tle profilu. */
+    val backgroundUrl: String? = null,
+    /** Profil prywatny: inni widzą tylko nazwę, avatar i tło. */
+    val isPrivate: Boolean = false,
+)
+
+/** Liczby widoczne na cudzym profilu. Trasy tylko publiczne. */
+data class PublicStats(
+    val totalDistance: Double, // metry
+    val routeCount: Int,
+    val followerCount: Int,
+    val followingCount: Int,
+)
+
+/**
+ * Cudzy profil (GET /users/{id}). [stats] jest null, gdy profil jest prywatny i nie jest nasz:
+ * wtedy widać tylko nazwę i zdjęcia.
+ */
+data class PublicProfile(
+    val id: String,
+    val displayName: String,
+    val avatarUrl: String?,
+    val backgroundUrl: String?,
+    val isPrivate: Boolean,
+    val isMe: Boolean,
+    val isFollowing: Boolean,
+    val stats: PublicStats?,
 )
 
 data class AdminUser(

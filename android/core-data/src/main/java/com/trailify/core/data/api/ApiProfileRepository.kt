@@ -18,10 +18,17 @@ class ApiProfileRepository(private val api: ApiClient) : ProfileRepository {
 
     override suspend fun getMe(): Profile = parseProfile(api.call(HttpMethod.Get, "/me"))
 
-    override suspend fun updateMe(displayName: String?, avatarUrl: String?): Profile {
+    override suspend fun updateMe(
+        displayName: String?,
+        avatarUrl: String?,
+        backgroundUrl: String?,
+        isPrivate: Boolean?,
+    ): Profile {
         val body = buildJsonObject {
             if (displayName != null) put("displayName", displayName)
             if (avatarUrl != null) put("avatarUrl", avatarUrl)
+            if (backgroundUrl != null) put("backgroundUrl", backgroundUrl)
+            if (isPrivate != null) put("isPrivate", isPrivate)
         }
         return parseProfile(api.call(HttpMethod.Patch, "/me", body))
     }
@@ -41,6 +48,8 @@ internal fun parseProfileJson(json: JsonObject): Profile {
         email = json.getValue("email").jsonPrimitive.content,
         displayName = json.getValue("displayName").jsonPrimitive.content,
         avatarUrl = json.strOrNull("avatarUrl"),
+        backgroundUrl = json.strOrNull("backgroundUrl"),
+        isPrivate = json.boolOrNull("isPrivate") ?: false,
         role = Role.valueOf(json.getValue("role").jsonPrimitive.content),
         createdAt = Instant.parse(json.getValue("createdAt").jsonPrimitive.content),
         stats = ProfileStats(
@@ -48,6 +57,8 @@ internal fun parseProfileJson(json: JsonObject): Profile {
             activityCount = stats.intOrNull("activityCount") ?: 0,
             routeCount = stats.intOrNull("routeCount") ?: 0,
             collectedPoiCount = stats.intOrNull("collectedPoiCount") ?: 0,
+            followerCount = stats.intOrNull("followerCount") ?: 0,
+            followingCount = stats.intOrNull("followingCount") ?: 0,
         ),
     )
 }

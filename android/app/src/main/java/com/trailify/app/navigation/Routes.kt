@@ -34,4 +34,12 @@ object Routes {
     const val ROUTE_ID_ARG = "routeId"
     const val ROUTE_DETAILS = "route/{$ROUTE_ID_ARG}"
     fun routeDetails(id: Long) = "route/$id"
+
+    // cudzy profil i listy osób (obserwujący / obserwowani)
+    const val USER_ID_ARG = "userId"
+    const val USER_LIST_KIND_ARG = "kind"
+    const val USER_PROFILE = "user/{$USER_ID_ARG}"
+    fun userProfile(id: String) = "user/$id"
+    const val USER_LIST = "user/{$USER_ID_ARG}/{$USER_LIST_KIND_ARG}"
+    fun userList(id: String, kind: String) = "user/$id/$kind"
 }

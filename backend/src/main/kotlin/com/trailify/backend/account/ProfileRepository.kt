@@ -18,6 +18,10 @@ data class ProfileRecord(
     /** `ACTIVE` albo `BLOCKED`. */
     val status: String,
     val createdAt: OffsetDateTime,
+    /** Zdjęcie w tle profilu (V6). */
+    val backgroundUrl: String? = null,
+    /** Profil prywatny: inni nie widzą statystyk, list ani tras (V6). */
+    val isPrivate: Boolean = false,
 ) {
     val isBlocked: Boolean get() = status == STATUS_BLOCKED
 
@@ -26,12 +30,14 @@ data class ProfileRecord(
     }
 }
 
-/** Liczby do ekranu profilu (schemat ProfileStats z openapi.yaml). */
+/** Liczby do ekranu profilu (schemat ProfileStats z openapi.yaml). [routeCount] liczy tylko trasy publiczne. */
 data class ProfileStatsRecord(
     val totalDistance: Double,
     val activityCount: Long,
     val routeCount: Long,
     val collectedPoiCount: Long,
+    val followerCount: Long,
+    val followingCount: Long,
 )
 
 /** Wąski interfejs, żeby logikę bezpieczeństwa dało się testować bez bazy. */
@@ -45,7 +51,7 @@ class ProfileRepository(private val jdbc: JdbcClient) : ProfileLookup {
     override fun findById(id: UUID): ProfileRecord? =
         jdbc.sql(
             """
-            select id, email, display_name, avatar_url, role, status, created_at
+            select id, email, display_name, avatar_url, background_url, is_private, role, status, created_at
             from profile
             where id = :id
             """.trimIndent(),
@@ -60,11 +66,15 @@ class ProfileRepository(private val jdbc: JdbcClient) : ProfileLookup {
         val sets = mutableListOf<String>()
         if (update.displayName != null) sets.add("display_name = :displayName")
         if (update.changeAvatar) sets.add("avatar_url = :avatarUrl")
+        if (update.changeBackground) sets.add("background_url = :backgroundUrl")
+        if (update.isPrivate != null) sets.add("is_private = :isPrivate")
         if (sets.isEmpty()) return
         jdbc.sql("update profile set ${sets.joinToString()} where id = :id")
             .param("id", id)
             .param("displayName", update.displayName, Types.VARCHAR)
             .param("avatarUrl", update.avatarUrl, Types.VARCHAR)
+            .param("backgroundUrl", update.backgroundUrl, Types.VARCHAR)
+            .param("isPrivate", update.isPrivate, Types.BOOLEAN)
             .update()
     }
 
@@ -84,8 +94,12 @@ class ProfileRepository(private val jdbc: JdbcClient) : ProfileLookup {
             select
                 coalesce((select sum(distance) from activity where user_id = :id), 0) as total_distance,
                 (select count(*) from activity where user_id = :id)                  as activity_count,
-                (select count(*) from route where user_id = :id)                     as route_count,
-                (select count(*) from poi_collection where user_id = :id)            as collected_poi_count
+                (select count(*) from route where user_id = :id and is_public)       as route_count,
+                (select count(*) from poi_collection where user_id = :id)            as collected_poi_count,
+                (select count(*) from follow f join profile p on p.id = f.follower_id
+                  where f.followee_id = :id and p.status = 'ACTIVE')                 as follower_count,
+                (select count(*) from follow f join profile p on p.id = f.followee_id
+                  where f.follower_id = :id and p.status = 'ACTIVE')                 as following_count
             """.trimIndent(),
         )
             .param("id", userId)
@@ -96,6 +110,8 @@ class ProfileRepository(private val jdbc: JdbcClient) : ProfileLookup {
                         activityCount = rs.getLong("activity_count"),
                         routeCount = rs.getLong("route_count"),
                         collectedPoiCount = rs.getLong("collected_poi_count"),
+                        followerCount = rs.getLong("follower_count"),
+                        followingCount = rs.getLong("following_count"),
                     )
                 },
             )
@@ -111,6 +127,8 @@ class ProfileRepository(private val jdbc: JdbcClient) : ProfileLookup {
                 role = rs.getString("role"),
                 status = rs.getString("status"),
                 createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
+                backgroundUrl = rs.getString("background_url"),
+                isPrivate = rs.getBoolean("is_private"),
             )
         }
     }

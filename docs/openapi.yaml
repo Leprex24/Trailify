@@ -110,11 +110,23 @@ paths:
       tags: [Konto, Aktywności]
       operationId: getMyActivities
       summary: Historia aktywności zalogowanego użytkownika (W25)
-      description: Posortowana od najnowszej.
+      description: |
+        Posortowana od najnowszej. Opcjonalny przedział czasu (np. jeden miesiąc do statystyk):
+        `from` włącznie, `to` wyłącznie, obie wartości w UTC. Odwrócony albo pusty przedział daje 400.
       x-owner: Kacper
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
+        - name: from
+          in: query
+          required: false
+          description: Początek przedziału (włącznie), ISO 8601 w UTC
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: false
+          description: Koniec przedziału (wyłącznie), ISO 8601 w UTC
+          schema: { type: string, format: date-time }
       responses:
         '200':
           description: Strona aktywności
@@ -180,6 +192,160 @@ paths:
                   $ref: '#/components/schemas/PoiCollectionEntry'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /users/{userId}:
+    get:
+      tags: [Społeczność]
+      operationId: getUser
+      summary: Profil innego użytkownika (albo własny)
+      description: |
+        Nazwa, avatar i tło są widoczne zawsze. `stats` (bez e-maila, aktywności i zebranych punktów)
+        jest `null`, gdy profil jest prywatny i nie należy do oglądającego. Zablokowane i nieistniejące
+        konta to 404.
+      x-owner: Kacper
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Profil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /users/{userId}/follow:
+    put:
+      tags: [Społeczność]
+      operationId: followUser
+      summary: Zacznij obserwować użytkownika
+      description: |
+        Ponowne obserwowanie niczego nie zmienia (204). Samego siebie obserwować nie można (409 `SELF_FOLLOW`),
+        a profil prywatny można zacząć obserwować tylko jeśli już się go obserwuje (403 `PRIVATE_PROFILE`).
+      x-owner: Kacper
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204':
+          description: Obserwujesz
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [Społeczność]
+      operationId: unfollowUser
+      summary: Przestań obserwować użytkownika
+      description: Działa zawsze, także gdy nie obserwowałeś (wynik ten sam).
+      x-owner: Kacper
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204':
+          description: Nie obserwujesz
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /users/{userId}/followers:
+    get:
+      tags: [Społeczność]
+      operationId: getFollowers
+      summary: Kto obserwuje użytkownika
+      description: Od najnowszych. Dla profilu prywatnego cudzego 403 `PRIVATE_PROFILE`.
+      x-owner: Kacper
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Strona użytkowników
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /users/{userId}/following:
+    get:
+      tags: [Społeczność]
+      operationId: getFollowing
+      summary: Kogo obserwuje użytkownik
+      description: Od najnowszych. Dla profilu prywatnego cudzego 403 `PRIVATE_PROFILE`.
+      x-owner: Kacper
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Strona użytkowników
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /users/{userId}/routes:
+    get:
+      tags: [Społeczność, Trasy]
+      operationId: getUserRoutes
+      summary: Publiczne trasy użytkownika
+      description: Od najnowszej. Dla profilu prywatnego cudzego 403 `PRIVATE_PROFILE`.
+      x-owner: Kacper
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Strona tras
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoutePage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /users/{userId}/poi-collection:
+    get:
+      tags: [Społeczność, Ciekawe punkty]
+      operationId: getUserPoiCollection
+      summary: Punkty zebrane przez użytkownika
+      description: Od najnowszego. Dla profilu prywatnego cudzego 403 `PRIVATE_PROFILE`.
+      x-owner: Kacper
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Lista zebranych punktów
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PoiCollectionEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /routes:
     get:
       tags: [Trasy]
@@ -989,6 +1155,11 @@ components:
       bearerFormat: JWT
       description: Token dostępu z Supabase Auth
   parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     Page:
       name: page
       in: query
@@ -1180,23 +1351,65 @@ components:
         avatarUrl: { type: string, format: uri, nullable: true }
     ProfileStats:
       type: object
-      required: [totalDistance, activityCount, routeCount, collectedPoiCount]
+      required: [totalDistance, activityCount, routeCount, collectedPoiCount, followerCount, followingCount]
       properties:
         totalDistance:
           type: number
           format: double
           description: Łączny dystans aktywności w metrach
         activityCount: { type: integer }
-        routeCount: { type: integer }
+        routeCount:
+          type: integer
+          description: Liczba publicznych tras
         collectedPoiCount: { type: integer }
+        followerCount: { type: integer }
+        followingCount: { type: integer }
+    PublicStats:
+      type: object
+      required: [totalDistance, routeCount, followerCount, followingCount]
+      properties:
+        totalDistance: { type: number, format: double, description: Łączny dystans w metrach }
+        routeCount: { type: integer, description: Liczba publicznych tras }
+        followerCount: { type: integer }
+        followingCount: { type: integer }
+    PublicProfile:
+      type: object
+      required: [id, displayName, isPrivate, isMe, isFollowing]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        avatarUrl: { type: string, format: uri, nullable: true }
+        backgroundUrl: { type: string, format: uri, nullable: true }
+        isPrivate: { type: boolean }
+        isMe: { type: boolean }
+        isFollowing: { type: boolean, description: Czy zalogowany użytkownik obserwuje ten profil }
+        stats:
+          nullable: true
+          description: null, gdy profil jest prywatny i nie należy do oglądającego
+          allOf:
+            - $ref: '#/components/schemas/PublicStats'
+    UserPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/UserSummary'
     Profile:
       type: object
-      required: [id, email, displayName, role, createdAt, stats]
+      required: [id, email, displayName, isPrivate, role, createdAt, stats]
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
         displayName: { type: string }
         avatarUrl: { type: string, format: uri, nullable: true }
+        backgroundUrl: { type: string, format: uri, nullable: true }
+        isPrivate:
+          type: boolean
+          description: Profil prywatny, inni widzą tylko nazwę, avatar i tło
         role:
           $ref: '#/components/schemas/Role'
         createdAt: { type: string, format: date-time }
@@ -1204,10 +1417,12 @@ components:
           $ref: '#/components/schemas/ProfileStats'
     ProfileUpdate:
       type: object
-      description: Pola nieprzesłane pozostają bez zmian. `avatarUrl` = null usuwa avatar.
+      description: Pola nieprzesłane pozostają bez zmian. `avatarUrl` albo `backgroundUrl` = null usuwa zdjęcie.
       properties:
         displayName: { type: string, minLength: 2, maxLength: 50 }
         avatarUrl: { type: string, format: uri, nullable: true }
+        backgroundUrl: { type: string, format: uri, nullable: true }
+        isPrivate: { type: boolean }
     RouteSummary:
       type: object
       required: [id, name, activityType, isTourist, isScenic, reviewCount, owner, createdAt]

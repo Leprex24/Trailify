@@ -54,6 +54,8 @@ fun Throwable.toUserMessage(): String = when ((this as? AppException)?.code) {
     "ROUTE_NOT_COMPLETED" -> "Możesz ocenić trasę dopiero po jej przejściu"
     "ALREADY_REVIEWED" -> "Ta trasa ma już Twoją ocenę"
     "OWN_ROUTE" -> "Nie można oceniać własnej trasy"
+    "PRIVATE_PROFILE" -> "Ten profil jest prywatny"
+    "SELF_FOLLOW" -> "Nie możesz obserwować samego siebie"
     "NOT_FOUND" -> "Nie znaleziono - mogło zostać usunięte"
     else -> "Coś poszło nie tak, spróbuj ponownie"
 }

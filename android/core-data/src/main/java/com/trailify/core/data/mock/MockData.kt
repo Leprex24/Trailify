@@ -27,7 +27,14 @@ object MockData {
         // ADMIN, żeby na atrapie dało się pokazać panel administratora (W29-W34)
         role = Role.ADMIN,
         createdAt = Instant.parse("2026-10-01T10:00:00Z"),
-        stats = ProfileStats(totalDistance = 42_500.0, activityCount = 7, routeCount = 3, collectedPoiCount = 2),
+        stats = ProfileStats(
+            totalDistance = 42_500.0,
+            activityCount = 7,
+            routeCount = 3,
+            collectedPoiCount = 2,
+            followerCount = 4,
+            followingCount = 6,
+        ),
     )
 
     private fun line(vararg p: Pair<Double, Double>) = p.map { LatLng(it.first, it.second) }

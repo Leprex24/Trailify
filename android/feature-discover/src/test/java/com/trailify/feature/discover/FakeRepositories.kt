@@ -86,7 +86,7 @@ class FakeReviewRepository : ReviewRepository {
 }
 
 class FakeActivityRepository(var completedRouteIds: Set<Long> = emptySet()) : ActivityRepository {
-    override suspend fun getMine(page: Int, size: Int): Page<ActivitySummary> = pageOf(
+    override suspend fun getMine(page: Int, size: Int, from: Instant?, to: Instant?): Page<ActivitySummary> = pageOf(
         completedRouteIds.mapIndexed { i, routeId ->
             ActivitySummary(i.toLong(), ActivityType.WALKING, routeId, Instant.EPOCH, null, null, null, null, null)
         },
@@ -111,7 +111,7 @@ class InstantUploader : PhotoUploader {
 /** Profil zalogowanego: [role] decyduje, czy widać przyciski administratora. */
 class FakeProfiles(var role: Role = Role.USER) : ProfileRepository {
     override suspend fun getMe() = Profile(ME, "me@example.com", "Ja", null, role, Instant.EPOCH, ProfileStats(0.0, 0, 0, 0))
-    override suspend fun updateMe(displayName: String?, avatarUrl: String?) = getMe()
+    override suspend fun updateMe(displayName: String?, avatarUrl: String?, backgroundUrl: String?, isPrivate: Boolean?) = getMe()
     override suspend fun deleteMe() = Unit
 }
 

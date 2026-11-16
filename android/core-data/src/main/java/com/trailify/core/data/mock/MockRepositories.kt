@@ -102,11 +102,18 @@ class MockProfileRepository : ProfileRepository {
         return profile
     }
 
-    override suspend fun updateMe(displayName: String?, avatarUrl: String?): Profile {
+    override suspend fun updateMe(
+        displayName: String?,
+        avatarUrl: String?,
+        backgroundUrl: String?,
+        isPrivate: Boolean?,
+    ): Profile {
         fakeNetwork()
         profile = profile.copy(
             displayName = displayName ?: profile.displayName,
             avatarUrl = avatarUrl ?: profile.avatarUrl,
+            backgroundUrl = backgroundUrl ?: profile.backgroundUrl,
+            isPrivate = isPrivate ?: profile.isPrivate,
         )
         return profile
     }
@@ -285,9 +292,12 @@ class MockActivityRepository : ActivityRepository {
         activities.removeAll { it.summary.id == id }
     }
 
-    override suspend fun getMine(page: Int, size: Int): Page<ActivitySummary> {
+    override suspend fun getMine(page: Int, size: Int, from: Instant?, to: Instant?): Page<ActivitySummary> {
         fakeNetwork()
-        return activities.map { it.summary }.sortedByDescending { it.startTime }.toPage(page, size)
+        return activities.map { it.summary }
+            .filter { (from == null || !it.startTime.isBefore(from)) && (to == null || it.startTime.isBefore(to)) }
+            .sortedByDescending { it.startTime }
+            .toPage(page, size)
     }
 }
 

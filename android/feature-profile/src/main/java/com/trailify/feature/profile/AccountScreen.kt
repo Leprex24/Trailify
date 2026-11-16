@@ -1,42 +1,45 @@
 package com.trailify.feature.profile
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.trailify.core.domain.repository.ThemeMode
 import com.trailify.core.ui.PasswordField
 import org.koin.compose.viewmodel.koinViewModel
 
-/** Ustawienia konta (W8, W9): nazwa, hasło, polityka prywatności, wylogowanie, usunięcie konta. */
+/** Ustawienia (W8, W9): motyw, hasło, polityka prywatności, wylogowanie, usunięcie konta, panel administratora. */
 @Composable
 fun AccountScreen(
     onOpenPrivacyPolicy: () -> Unit,
+    onOpenAdmin: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AccountViewModel = koinViewModel(),
 ) {
     val ui by viewModel.ui.collectAsStateWithLifecycle()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
 
     if (ui.showDeleteDialog) {
         AlertDialog(
@@ -61,7 +64,7 @@ fun AccountScreen(
             .padding(24.dp),
     ) {
         TextButton(onClick = onBack) { Text("← Wróć") }
-        Text("Ustawienia konta", style = MaterialTheme.typography.headlineMedium)
+        Text("Ustawienia", style = MaterialTheme.typography.headlineMedium)
         Text(ui.email, style = MaterialTheme.typography.bodyMedium)
 
         if (ui.isLoading) {
@@ -76,17 +79,18 @@ fun AccountScreen(
             )
         }
 
-        // --- Nazwa ---
+        // --- Motyw ---
         Spacer(Modifier.height(16.dp))
-        OutlinedTextField(
-            value = ui.displayName,
-            onValueChange = viewModel::onDisplayNameChange,
-            label = { Text("Nazwa widoczna dla innych") },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Button(onClick = viewModel::saveDisplayName, enabled = !ui.isLoading) { Text("Zapisz nazwę") }
+        Text("Motyw aplikacji", style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+            THEME_OPTIONS.forEach { (mode, label) ->
+                FilterChip(
+                    selected = themeMode == mode,
+                    onClick = { viewModel.setThemeMode(mode) },
+                    label = { Text(label) },
+                )
+            }
+        }
 
         // --- Hasło ---
         Spacer(Modifier.height(24.dp))
@@ -106,6 +110,10 @@ fun AccountScreen(
         Spacer(Modifier.height(24.dp))
         HorizontalDivider()
         TextButton(onClick = onOpenPrivacyPolicy) { Text("Polityka prywatności") }
+        if (ui.isAdmin) {
+            Button(onClick = onOpenAdmin, modifier = Modifier.fillMaxWidth()) { Text("Panel administratora") }
+            Spacer(Modifier.height(8.dp))
+        }
         OutlinedButton(
             onClick = viewModel::signOut,
             enabled = !ui.isLoading,
@@ -122,3 +130,9 @@ fun AccountScreen(
         ) { Text("Usuń konto") }
     }
 }
+
+private val THEME_OPTIONS = listOf(
+    ThemeMode.SYSTEM to "Systemowy",
+    ThemeMode.LIGHT to "Jasny",
+    ThemeMode.DARK to "Ciemny",
+)

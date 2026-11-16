@@ -3,6 +3,8 @@ erDiagram
     profile ||--o{ activity : "rejestruje"
     profile ||--o{ review : "pisze"
     profile ||--o{ poi_collection : "zbiera"
+    profile ||--o{ follow : "obserwuje"
+    profile ||--o{ follow : "jest obserwowany"
     profile |o--o{ point_of_interest : "zgłasza"
     route ||--o{ review : "ma"
     route |o--o{ activity : "przebyta w"
@@ -17,6 +19,8 @@ erDiagram
         varchar email UK
         varchar display_name
         varchar avatar_url
+        varchar background_url
+        boolean is_private "profil prywatny"
         varchar role "USER lub ADMIN"
         varchar status "ACTIVE lub BLOCKED"
         timestamptz created_at
@@ -94,4 +98,9 @@ erDiagram
         uuid user_id FK "unikalne z poi_id"
         bigint poi_id FK
         timestamptz collected_at
+    }
+    follow {
+        uuid follower_id PK,FK "kto obserwuje"
+        uuid followee_id PK,FK "kogo obserwuje"
+        timestamptz created_at
     }

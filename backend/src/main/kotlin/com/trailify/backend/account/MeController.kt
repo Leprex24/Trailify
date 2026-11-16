@@ -18,6 +18,8 @@ data class ProfileResponse(
     val email: String,
     val displayName: String,
     val avatarUrl: String?,
+    val backgroundUrl: String?,
+    val isPrivate: Boolean,
     val role: String,
     /** ISO 8601 w UTC, np. 2026-10-20T14:30:00Z. */
     val createdAt: String,
@@ -27,8 +29,31 @@ data class ProfileResponse(
 data class ProfileStatsResponse(
     val totalDistance: Double,
     val activityCount: Long,
+    /** Tylko trasy publiczne. */
     val routeCount: Long,
     val collectedPoiCount: Long,
+    val followerCount: Long,
+    val followingCount: Long,
+)
+
+/** Profil z liczbami w formacie odpowiedzi API (używa tego też panel administratora). */
+fun profileResponse(profile: ProfileRecord, stats: ProfileStatsRecord) = ProfileResponse(
+    id = profile.id.toString(),
+    email = profile.email,
+    displayName = profile.displayName,
+    avatarUrl = profile.avatarUrl,
+    backgroundUrl = profile.backgroundUrl,
+    isPrivate = profile.isPrivate,
+    role = profile.role,
+    createdAt = profile.createdAt.toInstant().toString(),
+    stats = ProfileStatsResponse(
+        totalDistance = stats.totalDistance,
+        activityCount = stats.activityCount,
+        routeCount = stats.routeCount,
+        collectedPoiCount = stats.collectedPoiCount,
+        followerCount = stats.followerCount,
+        followingCount = stats.followingCount,
+    ),
 )
 
 @RestController
@@ -62,21 +87,5 @@ class MeController(
         accounts.deleteAccount(authentication.currentProfile().id)
     }
 
-    private fun toResponse(profile: ProfileRecord): ProfileResponse {
-        val stats = profiles.stats(profile.id)
-        return ProfileResponse(
-            id = profile.id.toString(),
-            email = profile.email,
-            displayName = profile.displayName,
-            avatarUrl = profile.avatarUrl,
-            role = profile.role,
-            createdAt = profile.createdAt.toInstant().toString(),
-            stats = ProfileStatsResponse(
-                totalDistance = stats.totalDistance,
-                activityCount = stats.activityCount,
-                routeCount = stats.routeCount,
-                collectedPoiCount = stats.collectedPoiCount,
-            ),
-        )
-    }
+    private fun toResponse(profile: ProfileRecord): ProfileResponse = profileResponse(profile, profiles.stats(profile.id))
 }

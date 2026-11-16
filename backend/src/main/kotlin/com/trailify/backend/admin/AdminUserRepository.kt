@@ -23,7 +23,7 @@ class AdminUserRepository(private val jdbc: JdbcClient) {
             .single()
         val items = jdbc.sql(
             """
-            select id, email, display_name, avatar_url, role, status, created_at
+            select id, email, display_name, avatar_url, background_url, is_private, role, status, created_at
             from profile $where
             order by created_at desc, id
             limit :limit offset :offset
@@ -66,6 +66,8 @@ class AdminUserRepository(private val jdbc: JdbcClient) {
                 role = rs.getString("role"),
                 status = rs.getString("status"),
                 createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
+                backgroundUrl = rs.getString("background_url"),
+                isPrivate = rs.getBoolean("is_private"),
             )
         }
     }

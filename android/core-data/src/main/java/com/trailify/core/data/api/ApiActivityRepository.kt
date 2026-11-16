@@ -62,8 +62,10 @@ class ApiActivityRepository(private val api: ApiClient) : ActivityRepository {
         api.call(HttpMethod.Delete, "/activities/$id")
     }
 
-    override suspend fun getMine(page: Int, size: Int): Page<ActivitySummary> {
-        val json = Json.parseToJsonElement(api.call(HttpMethod.Get, "/me/activities?page=$page&size=$size")).jsonObject
+    override suspend fun getMine(page: Int, size: Int, from: Instant?, to: Instant?): Page<ActivitySummary> {
+        // Instant.toString() daje czas w UTC z "Z" na końcu, więc nie trzeba nic kodować w adresie
+        val range = listOfNotNull(from?.let { "&from=$it" }, to?.let { "&to=$it" }).joinToString("")
+        val json = Json.parseToJsonElement(api.call(HttpMethod.Get, "/me/activities?page=$page&size=$size$range")).jsonObject
         return Page(
             items = json.getValue("items").jsonArray.map { parseSummary(it.jsonObject) },
             page = json.intOrNull("page") ?: page,

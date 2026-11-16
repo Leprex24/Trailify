@@ -51,4 +51,33 @@ class ProfileUpdateTest {
         assertThatThrownBy { parseProfileUpdate(mapOf("avatarUrl" to "javascript:alert(1)")) }
             .isInstanceOf(ApiException::class.java)
     }
+
+    @Test
+    fun `prywatnosc przyjmuje tylko true albo false`() {
+        assertThat(parseProfileUpdate(mapOf("isPrivate" to true)).isPrivate).isTrue()
+        assertThat(parseProfileUpdate(mapOf("isPrivate" to false)).isPrivate).isFalse()
+        assertThat(parseProfileUpdate(emptyMap()).isPrivate).isNull()
+        assertThatThrownBy { parseProfileUpdate(mapOf("isPrivate" to "tak")) }.isInstanceOf(ApiException::class.java)
+        assertThatThrownBy { parseProfileUpdate(mapOf("isPrivate" to null)) }.isInstanceOf(ApiException::class.java)
+    }
+
+    @Test
+    fun `tlo ustawia sie i usuwa jak avatar`() {
+        val set = parseProfileUpdate(mapOf("backgroundUrl" to "https://cdn.example.com/tlo.jpg"))
+        assertThat(set.changeBackground).isTrue()
+        assertThat(set.backgroundUrl).isEqualTo("https://cdn.example.com/tlo.jpg")
+
+        val cleared = parseProfileUpdate(mapOf("backgroundUrl" to null))
+        assertThat(cleared.changeBackground).isTrue()
+        assertThat(cleared.backgroundUrl).isNull()
+
+        assertThat(parseProfileUpdate(emptyMap()).changeBackground).isFalse()
+    }
+
+    @Test
+    fun `tlo musi miec adres https`() {
+        assertThatThrownBy { parseProfileUpdate(mapOf("backgroundUrl" to "http://example.com/a.jpg")) }
+            .isInstanceOf(ApiException::class.java)
+        assertThatThrownBy { parseProfileUpdate(mapOf("backgroundUrl" to 5)) }.isInstanceOf(ApiException::class.java)
+    }
 }

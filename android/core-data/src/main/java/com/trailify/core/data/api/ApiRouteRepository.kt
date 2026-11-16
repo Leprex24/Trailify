@@ -125,7 +125,7 @@ class ApiRouteRepository(private val api: ApiClient) : RouteRepository, SavedRou
     private fun parsePage(text: String): Page<RouteSummary> {
         val json = Json.parseToJsonElement(text).jsonObject
         return Page(
-            items = json.getValue("items").jsonArray.map { parseSummary(it.jsonObject) },
+            items = json.getValue("items").jsonArray.map { parseRouteSummary(it.jsonObject) },
             page = json.intOrNull("page") ?: 0,
             size = json.intOrNull("size") ?: 0,
             totalElements = json.longOrNull("totalElements") ?: 0L,
@@ -138,7 +138,7 @@ class ApiRouteRepository(private val api: ApiClient) : RouteRepository, SavedRou
         // geometria to GeoJSON LineString: współrzędne są [długość, szerokość]
         val coordinates = json["geometry"]?.jsonObject?.get("coordinates")?.jsonArray.orEmpty()
         return Route(
-            summary = parseSummary(json),
+            summary = parseRouteSummary(json),
             description = json.strOrNull("description"),
             geometry = coordinates.map {
                 val pair = it.jsonArray
@@ -150,36 +150,37 @@ class ApiRouteRepository(private val api: ApiClient) : RouteRepository, SavedRou
             },
         )
     }
-
-    private fun parseSummary(json: JsonObject): RouteSummary {
-        val owner = json.getValue("owner").jsonObject
-        return RouteSummary(
-            id = json.getValue("id").jsonPrimitive.content.toLong(),
-            name = json.getValue("name").jsonPrimitive.content,
-            activityType = ActivityType.valueOf(json.getValue("activityType").jsonPrimitive.content),
-            isTourist = json.boolOrFalse("isTourist"),
-            isScenic = json.boolOrFalse("isScenic"),
-            isPublic = json.boolOrFalse("isPublic"),
-            totalDistance = json.doubleOrNull("totalDistance"),
-            durationSeconds = json.intOrNull("durationSeconds"),
-            averageRating = json.doubleOrNull("averageRating"),
-            reviewCount = json.intOrNull("reviewCount") ?: 0,
-            recommendationScore = json.doubleOrNull("recommendationScore"),
-            startPoint = json["startPoint"]?.let { it as? JsonObject }?.let {
-                val lat = it.doubleOrNull("latitude")
-                val lng = it.doubleOrNull("longitude")
-                if (lat != null && lng != null) LatLng(lat, lng) else null
-            },
-            thumbnailUrl = json.strOrNull("thumbnailUrl"),
-            distanceFromQuery = json.doubleOrNull("distanceFromQuery"),
-            owner = UserSummary(
-                id = owner.getValue("id").jsonPrimitive.content,
-                displayName = owner.getValue("displayName").jsonPrimitive.content,
-                avatarUrl = owner.strOrNull("avatarUrl"),
-            ),
-            createdAt = Instant.parse(json.getValue("createdAt").jsonPrimitive.content),
-        )
-    }
 }
 
 private fun JsonObject.boolOrFalse(name: String): Boolean = strOrNull(name)?.toBoolean() ?: false
+
+/** Schemat RouteSummary (trasy z listy, z wyszukiwania i z profilu użytkownika). */
+internal fun parseRouteSummary(json: JsonObject): RouteSummary {
+    val owner = json.getValue("owner").jsonObject
+    return RouteSummary(
+        id = json.getValue("id").jsonPrimitive.content.toLong(),
+        name = json.getValue("name").jsonPrimitive.content,
+        activityType = ActivityType.valueOf(json.getValue("activityType").jsonPrimitive.content),
+        isTourist = json.boolOrFalse("isTourist"),
+        isScenic = json.boolOrFalse("isScenic"),
+        isPublic = json.boolOrFalse("isPublic"),
+        totalDistance = json.doubleOrNull("totalDistance"),
+        durationSeconds = json.intOrNull("durationSeconds"),
+        averageRating = json.doubleOrNull("averageRating"),
+        reviewCount = json.intOrNull("reviewCount") ?: 0,
+        recommendationScore = json.doubleOrNull("recommendationScore"),
+        startPoint = json["startPoint"]?.let { it as? JsonObject }?.let {
+            val lat = it.doubleOrNull("latitude")
+            val lng = it.doubleOrNull("longitude")
+            if (lat != null && lng != null) LatLng(lat, lng) else null
+        },
+        thumbnailUrl = json.strOrNull("thumbnailUrl"),
+        distanceFromQuery = json.doubleOrNull("distanceFromQuery"),
+        owner = UserSummary(
+            id = owner.getValue("id").jsonPrimitive.content,
+            displayName = owner.getValue("displayName").jsonPrimitive.content,
+            avatarUrl = owner.strOrNull("avatarUrl"),
+        ),
+        createdAt = Instant.parse(json.getValue("createdAt").jsonPrimitive.content),
+    )
+}

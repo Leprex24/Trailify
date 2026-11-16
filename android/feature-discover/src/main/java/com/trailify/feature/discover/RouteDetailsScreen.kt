@@ -1,6 +1,7 @@
 package com.trailify.feature.discover
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -26,14 +28,17 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
@@ -47,11 +52,11 @@ import com.trailify.core.ui.formatDuration
 import com.trailify.core.ui.label
 import com.trailify.feature.discover.reviews.ReviewsSection
 import com.trailify.feature.discover.reviews.ReviewsViewModel
-import org.koin.compose.viewmodel.koinViewModel
-import org.koin.core.parameter.parametersOf
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 private val DATE_FORMAT = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("pl-PL"))
     .withZone(ZoneId.systemDefault())
@@ -65,6 +70,7 @@ fun RouteDetailsScreen(
     routeId: Long,
     onBack: () -> Unit,
     onFollowRoute: () -> Unit,
+    onOpenUser: (userId: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RouteDetailsViewModel = koinViewModel(),
 ) {
@@ -90,6 +96,7 @@ fun RouteDetailsScreen(
             deleteError = deleteError,
             saved = saved,
             onToggleSaved = { viewModel.toggleSaved(routeId) },
+            onOpenUser = onOpenUser,
             modifier = modifier,
         )
     }
@@ -105,6 +112,7 @@ private fun RouteDetailsContent(
     deleteError: String?,
     saved: Boolean?,
     onToggleSaved: () -> Unit,
+    onOpenUser: (userId: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val summary = route.summary
@@ -163,11 +171,18 @@ private fun RouteDetailsContent(
         item {
             Column(Modifier.padding(16.dp)) {
                 Text(summary.name, style = MaterialTheme.typography.headlineSmall)
+                // nazwa autora prowadzi do jego profilu
                 Text(
-                    "Autor: ${summary.owner.displayName} · ${DATE_FORMAT.format(summary.createdAt)}",
+                    buildAnnotatedString {
+                        append("Autor: ")
+                        withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)) {
+                            append(summary.owner.displayName)
+                        }
+                        append(" · ${DATE_FORMAT.format(summary.createdAt)}")
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier.padding(top = 4.dp).clickable { onOpenUser(summary.owner.id) },
                 )
                 RatingRow(summary.averageRating, summary.reviewCount, modifier = Modifier.padding(top = 8.dp))
 
@@ -218,7 +233,7 @@ private fun RouteDetailsContent(
         }
 
         item {
-            ReviewsSection(state = reviews, viewModel = reviewsViewModel, modifier = Modifier.padding(horizontal = 16.dp))
+            ReviewsSection(state = reviews, viewModel = reviewsViewModel, onOpenUser = onOpenUser, modifier = Modifier.padding(horizontal = 16.dp))
         }
     }
 }

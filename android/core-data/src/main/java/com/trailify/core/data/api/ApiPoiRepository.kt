@@ -82,7 +82,7 @@ internal fun parsePoiAdmin(json: JsonObject) = PoiAdmin(
     createdAt = Instant.parse(json.getValue("createdAt").jsonPrimitive.content),
 )
 
-private fun parseCollectionEntry(json: JsonObject) = PoiCollectionEntry(
+internal fun parseCollectionEntry(json: JsonObject) = PoiCollectionEntry(
     poi = parsePoi(json.getValue("poi").jsonObject),
     collectedAt = Instant.parse(json.getValue("collectedAt").jsonPrimitive.content),
 )

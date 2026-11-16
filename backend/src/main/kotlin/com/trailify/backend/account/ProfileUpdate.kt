@@ -18,6 +18,11 @@ data class ProfileUpdate(
     /** true, gdy żądanie zawierało pole avatarUrl (nawet z wartością null). */
     val changeAvatar: Boolean,
     val avatarUrl: String?,
+    /** Jak [changeAvatar], ale dla zdjęcia w tle profilu. */
+    val changeBackground: Boolean = false,
+    val backgroundUrl: String? = null,
+    /** null = bez zmiany. */
+    val isPrivate: Boolean? = null,
 )
 
 /** Sprawdza treść PATCH /me. Przy błędach rzuca ApiException 400 z listą pól. */
@@ -51,10 +56,28 @@ fun parseProfileUpdate(body: Map<String, Any?>): ProfileUpdate {
         }
     }
 
+    val changeBackground = body.containsKey("backgroundUrl")
+    var backgroundUrl: String? = null
+    if (changeBackground) {
+        val raw = body["backgroundUrl"]
+        when {
+            raw == null -> backgroundUrl = null
+            raw !is String || !isValidAvatarUrl(raw) ->
+                errors.add(ApiFieldError("backgroundUrl", "Adres tła musi być poprawnym adresem https"))
+            else -> backgroundUrl = raw
+        }
+    }
+
+    var isPrivate: Boolean? = null
+    if (body.containsKey("isPrivate")) {
+        val raw = body["isPrivate"]
+        if (raw !is Boolean) errors.add(ApiFieldError("isPrivate", "Pole musi mieć wartość true albo false")) else isPrivate = raw
+    }
+
     if (errors.isNotEmpty()) {
         throw ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Niepoprawne dane", errors)
     }
-    return ProfileUpdate(displayName, changeAvatar, avatarUrl)
+    return ProfileUpdate(displayName, changeAvatar, avatarUrl, changeBackground, backgroundUrl, isPrivate)
 }
 
 fun isValidAvatarUrl(url: String): Boolean {

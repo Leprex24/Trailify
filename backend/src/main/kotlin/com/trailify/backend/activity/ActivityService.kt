@@ -50,8 +50,8 @@ class ActivityService(
         if (!repository.delete(userId, activityId)) notFound()
     }
 
-    fun listMine(userId: UUID, page: PageRequest): PageResponse<ActivitySummaryResponse> =
-        pageOf(page, repository.countByUser(userId), repository.listByUser(userId, page))
+    fun listMine(userId: UUID, page: PageRequest, range: ActivityRange = ActivityRange.ALL): PageResponse<ActivitySummaryResponse> =
+        pageOf(page, repository.countByUser(userId, range), repository.listByUser(userId, page, range))
 
     private fun validate(userId: UUID, request: ActivityCreateRequest) {
         val errors = validateActivityFields(request).toMutableList()

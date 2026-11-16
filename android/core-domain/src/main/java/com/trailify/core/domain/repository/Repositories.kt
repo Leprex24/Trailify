@@ -13,6 +13,7 @@ import com.trailify.core.domain.model.PoiCollectionEntry
 import com.trailify.core.domain.model.PoiDraft
 import com.trailify.core.domain.model.PoiStatus
 import com.trailify.core.domain.model.Profile
+import com.trailify.core.domain.model.PublicProfile
 import com.trailify.core.domain.model.Review
 import com.trailify.core.domain.model.ReviewDraft
 import com.trailify.core.domain.model.Route
@@ -22,6 +23,7 @@ import com.trailify.core.domain.model.RouteSummary
 import com.trailify.core.domain.model.RouteUpdate
 import com.trailify.core.domain.model.UserSummary
 import kotlinx.coroutines.flow.StateFlow
+import java.time.Instant
 
 // Interfejsy odpowiadają endpointom z docs/openapi.yaml.
 // Ekrany zależą WYŁĄCZNIE od tych interfejsów. Na początku działają na nich atrapy (mocki)
@@ -39,8 +41,31 @@ interface AuthRepository {
 /** /me */
 interface ProfileRepository {
     suspend fun getMe(): Profile
-    suspend fun updateMe(displayName: String? = null, avatarUrl: String? = null): Profile
+
+    /** Pola null zostają bez zmian. Adresy zdjęć pochodzą z [PhotoUploader]. */
+    suspend fun updateMe(
+        displayName: String? = null,
+        avatarUrl: String? = null,
+        backgroundUrl: String? = null,
+        isPrivate: Boolean? = null,
+    ): Profile
     suspend fun deleteMe()
+}
+
+/**
+ * /users/{id}: cudzy profil, obserwowanie i to, co widać na profilu. Dla profilu prywatnego (cudzego)
+ * listy i trasy kończą się błędem PRIVATE_PROFILE, a obserwowanie takiego profilu błędem po stronie serwera.
+ */
+interface SocialRepository {
+    suspend fun getProfile(userId: String): PublicProfile
+    suspend fun follow(userId: String)
+    suspend fun unfollow(userId: String)
+    suspend fun followers(userId: String, page: Int = 0, size: Int = 20): Page<UserSummary>
+    suspend fun following(userId: String, page: Int = 0, size: Int = 20): Page<UserSummary>
+
+    /** Tylko trasy publiczne tego użytkownika. */
+    suspend fun routes(userId: String, page: Int = 0, size: Int = 20): Page<RouteSummary>
+    suspend fun poiCollection(userId: String): List<PoiCollectionEntry>
 }
 
 /** /routes, /me/routes */
@@ -58,7 +83,9 @@ interface ActivityRepository {
     suspend fun save(draft: ActivityDraft): Activity
     suspend fun get(id: Long): Activity
     suspend fun delete(id: Long)
-    suspend fun getMine(page: Int = 0, size: Int = 20): Page<ActivitySummary>
+
+    /** [from] włącznie i [to] wyłącznie ograniczają listę do przedziału czasu (np. miesiąc do statystyk). */
+    suspend fun getMine(page: Int = 0, size: Int = 20, from: Instant? = null, to: Instant? = null): Page<ActivitySummary>
 }
 
 /** /routes/{id}/reviews, /reviews/{id} */

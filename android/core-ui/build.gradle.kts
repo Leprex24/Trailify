@@ -32,6 +32,8 @@ dependencies {
     // wspólne mapy (podgląd trasy, punkty) dla ekranów Odkrywaj, Społeczność i Profil
     api(libs.maplibre.android)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    // zdjęcia z internetu w awatarze i nagłówku profilu
+    implementation(libs.coil.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

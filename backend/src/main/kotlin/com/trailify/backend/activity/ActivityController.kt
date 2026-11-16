@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import java.time.Instant
 
 @RestController
 @RequestMapping("/api/v1")
@@ -51,7 +52,11 @@ class ActivityController(private val service: ActivityService) {
     fun mine(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "$DEFAULT_PAGE_SIZE") size: Int,
+        /** Początek przedziału (włącznie), ISO 8601 w UTC, np. 2026-11-01T00:00:00Z. */
+        @RequestParam(required = false) from: Instant?,
+        /** Koniec przedziału (wyłącznie). */
+        @RequestParam(required = false) to: Instant?,
         authentication: Authentication,
     ): PageResponse<ActivitySummaryResponse> =
-        service.listMine(authentication.currentProfile().id, PageRequest.of(page, size))
+        service.listMine(authentication.currentProfile().id, PageRequest.of(page, size), activityRange(from, to))
 }

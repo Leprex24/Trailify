@@ -6,7 +6,7 @@ import com.trailify.backend.account.ProfileLookup
 import com.trailify.backend.account.ProfileRecord
 import com.trailify.backend.account.ProfileRepository
 import com.trailify.backend.account.ProfileResponse
-import com.trailify.backend.account.ProfileStatsResponse
+import com.trailify.backend.account.profileResponse
 import com.trailify.backend.common.PageRequest
 import com.trailify.backend.common.PageResponse
 import com.trailify.backend.common.pageOf
@@ -85,20 +85,7 @@ class AdminService(
     private fun toResponse(profile: ProfileRecord): AdminUserResponse {
         val stats = profiles.stats(profile.id)
         return AdminUserResponse(
-            profile = ProfileResponse(
-                id = profile.id.toString(),
-                email = profile.email,
-                displayName = profile.displayName,
-                avatarUrl = profile.avatarUrl,
-                role = profile.role,
-                createdAt = profile.createdAt.toInstant().toString(),
-                stats = ProfileStatsResponse(
-                    totalDistance = stats.totalDistance,
-                    activityCount = stats.activityCount,
-                    routeCount = stats.routeCount,
-                    collectedPoiCount = stats.collectedPoiCount,
-                ),
-            ),
+            profile = profileResponse(profile, stats),
             status = profile.status,
         )
     }

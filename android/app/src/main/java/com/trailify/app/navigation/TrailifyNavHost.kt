@@ -39,7 +39,10 @@ import com.trailify.feature.map.ActivitySummaryScreen
 import com.trailify.feature.map.MapScreen
 import com.trailify.feature.profile.AccountScreen
 import com.trailify.feature.profile.ActivityDetailsScreen
+import com.trailify.feature.profile.OtherProfileScreen
 import com.trailify.feature.profile.ProfileScreen
+import com.trailify.feature.profile.UserListKind
+import com.trailify.feature.profile.UserListScreen
 import com.trailify.feature.routes.RoutesScreen
 import org.koin.compose.koinInject
 import androidx.compose.material3.MaterialTheme
@@ -165,9 +168,42 @@ fun TrailifyNavHost() {
                 composable(Routes.PROFILE) {
                     ScreenSurface {
                         ProfileScreen(
-                            onOpenAccount = { navController.navigate(Routes.ACCOUNT) },
+                            onOpenSettings = { navController.navigate(Routes.ACCOUNT) },
                             onOpenActivity = { navController.navigate(Routes.activityDetails(it)) },
-                            onOpenAdmin = { navController.navigate(Routes.ADMIN) },
+                            onProposePoi = { navController.navigate(Routes.PROPOSE_POI) },
+                            onOpenFollowers = { navController.navigate(Routes.userList(it, UserListKind.FOLLOWERS.route)) },
+                            onOpenFollowing = { navController.navigate(Routes.userList(it, UserListKind.FOLLOWING.route)) },
+                        )
+                    }
+                }
+                composable(
+                    route = Routes.USER_PROFILE,
+                    arguments = listOf(navArgument(Routes.USER_ID_ARG) { type = NavType.StringType }),
+                ) { entry ->
+                    val userId = entry.arguments?.getString(Routes.USER_ID_ARG).orEmpty()
+                    ScreenSurface {
+                        OtherProfileScreen(
+                            userId = userId,
+                            onBack = { navController.popBackStack() },
+                            onOpenFollowers = { navController.navigate(Routes.userList(it, UserListKind.FOLLOWERS.route)) },
+                            onOpenFollowing = { navController.navigate(Routes.userList(it, UserListKind.FOLLOWING.route)) },
+                            onOpenRoute = { navController.navigate(Routes.routeDetails(it)) },
+                        )
+                    }
+                }
+                composable(
+                    route = Routes.USER_LIST,
+                    arguments = listOf(
+                        navArgument(Routes.USER_ID_ARG) { type = NavType.StringType },
+                        navArgument(Routes.USER_LIST_KIND_ARG) { type = NavType.StringType },
+                    ),
+                ) { entry ->
+                    ScreenSurface {
+                        UserListScreen(
+                            userId = entry.arguments?.getString(Routes.USER_ID_ARG).orEmpty(),
+                            kind = UserListKind.fromRoute(entry.arguments?.getString(Routes.USER_LIST_KIND_ARG)),
+                            onBack = { navController.popBackStack() },
+                            onOpenUser = { navController.navigate(Routes.userProfile(it)) },
                         )
                     }
                 }
@@ -202,6 +238,7 @@ fun TrailifyNavHost() {
                         RouteDetailsScreen(
                             routeId = entry.arguments?.getLong(Routes.ROUTE_ID_ARG) ?: 0L,
                             onBack = { navController.popBackStack() },
+                            onOpenUser = { navController.navigate(Routes.userProfile(it)) },
                             onFollowRoute = {
                                 // wracamy na START (pierwszy ekran stosu), mapa pokaże wybraną trasę
                                 navController.navigate(Routes.MAP) {
@@ -230,6 +267,7 @@ fun TrailifyNavHost() {
                     ScreenSurface {
                         AccountScreen(
                             onOpenPrivacyPolicy = { navController.navigate(Routes.PRIVACY_POLICY) },
+                            onOpenAdmin = { navController.navigate(Routes.ADMIN) },
                             onBack = { navController.popBackStack() },
                         )
                     }

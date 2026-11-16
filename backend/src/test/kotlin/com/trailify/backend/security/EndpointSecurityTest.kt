@@ -7,6 +7,8 @@ import com.trailify.backend.poi.PoiController
 import com.trailify.backend.poi.PoiService
 import com.trailify.backend.route.RouteService
 import com.trailify.backend.route.SavedRouteController
+import com.trailify.backend.social.SocialController
+import com.trailify.backend.social.SocialService
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
@@ -26,7 +28,9 @@ import org.springframework.test.web.servlet.put
  * Kto ma dostęp do czego (SecurityConfig) dla endpointów ciekawych punktów i panelu administratora.
  * Bez bazy: serwisy są atrapami, sprawdzamy tylko odpowiedzi 200/401/403 warstwy HTTP.
  */
-@WebMvcTest(controllers = [PoiController::class, AdminController::class, SavedRouteController::class])
+@WebMvcTest(
+    controllers = [PoiController::class, AdminController::class, SavedRouteController::class, SocialController::class],
+)
 @Import(SecurityConfig::class, ProfileJwtAuthenticationConverter::class)
 class EndpointSecurityTest {
 
@@ -41,6 +45,9 @@ class EndpointSecurityTest {
 
     @MockitoBean
     private lateinit var routes: RouteService
+
+    @MockitoBean
+    private lateinit var social: SocialService
 
     @MockitoBean
     private lateinit var profiles: ProfileLookup
@@ -140,5 +147,36 @@ class EndpointSecurityTest {
     @Test
     fun `lista zapisanych tras bez tokena daje 401`() {
         mvc.get("/api/v1/me/saved-routes").andExpect { status { isUnauthorized() } }
+    }
+
+    // --- cudze profile i obserwowanie (wszystko wymaga logowania) ---
+
+    private val someUser = "/api/v1/users/6f1c2d3e-0000-4000-8000-000000000001"
+
+    @Test
+    fun `cudzy profil bez tokena daje 401`() {
+        mvc.get(someUser).andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `obserwowanie bez tokena daje 401`() {
+        mvc.put("$someUser/follow").andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `odobserwowanie bez tokena daje 401`() {
+        mvc.delete("$someUser/follow").andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `listy obserwujacych i obserwowanych bez tokena daja 401`() {
+        mvc.get("$someUser/followers").andExpect { status { isUnauthorized() } }
+        mvc.get("$someUser/following").andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `trasy i punkty cudzego profilu bez tokena daja 401`() {
+        mvc.get("$someUser/routes").andExpect { status { isUnauthorized() } }
+        mvc.get("$someUser/poi-collection").andExpect { status { isUnauthorized() } }
     }
 }

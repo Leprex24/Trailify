@@ -3,11 +3,13 @@ package com.trailify.feature.profile
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trailify.core.domain.model.Role
 import com.trailify.core.domain.repository.AccountAuthRepository
 import com.trailify.core.domain.repository.AuthRepository
 import com.trailify.core.domain.repository.ProfileRepository
+import com.trailify.core.domain.repository.ThemeMode
+import com.trailify.core.domain.repository.ThemeSettings
 import com.trailify.core.ui.toUserMessage
-import com.trailify.core.ui.validateDisplayName
 import com.trailify.core.ui.validateNewPassword
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +20,7 @@ import kotlinx.coroutines.launch
 
 data class AccountUiState(
     val email: String = "",
-    val displayName: String = "",
+    val isAdmin: Boolean = false,
     val newPassword: String = "",
     val message: String? = null,
     val isError: Boolean = false,
@@ -27,37 +29,33 @@ data class AccountUiState(
 )
 
 /**
- * Ustawienia konta (W8, W9): zmiana nazwy (PATCH /me), zmiana hasła, wylogowanie
- * i usunięcie konta (DELETE /me). Po wylogowaniu i usunięciu konta AuthRepository.currentUser
- * staje się null, a nawigacja sama przenosi na ekran logowania.
+ * Ustawienia (W8, W9): motyw aplikacji, zmiana hasła, wylogowanie i usunięcie konta (DELETE /me),
+ * a dla administratora przejście do panelu. Nazwę i prywatność profilu zmienia się w "Edytuj profil".
+ * Po wylogowaniu i usunięciu konta AuthRepository.currentUser staje się null, a nawigacja sama przenosi
+ * na ekran logowania.
  */
 class AccountViewModel(
     private val profiles: ProfileRepository,
     private val auth: AuthRepository,
     private val account: AccountAuthRepository,
+    private val theme: ThemeSettings,
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(AccountUiState())
     val ui: StateFlow<AccountUiState> = _ui.asStateFlow()
 
+    val themeMode: StateFlow<ThemeMode> = theme.mode
+
     init {
         perform(successMessage = null) {
             val profile = profiles.getMe()
-            _ui.update { it.copy(email = profile.email, displayName = profile.displayName) }
+            _ui.update { it.copy(email = profile.email, isAdmin = profile.role == Role.ADMIN) }
         }
     }
 
-    fun onDisplayNameChange(v: String) = _ui.update { it.copy(displayName = v, message = null) }
+    fun setThemeMode(mode: ThemeMode) = theme.setMode(mode)
+
     fun onNewPasswordChange(v: String) = _ui.update { it.copy(newPassword = v, message = null) }
-
-    fun saveDisplayName() {
-        val name = _ui.value.displayName.trim()
-        validateDisplayName(name)?.let { showError(it); return }
-        perform("Zapisano nazwę") {
-            val profile = profiles.updateMe(displayName = name)
-            _ui.update { it.copy(displayName = profile.displayName) }
-        }
-    }
 
     fun changePassword() {
         val newPassword = _ui.value.newPassword

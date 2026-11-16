@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -54,6 +54,7 @@ import com.trailify.core.domain.model.Review
 import com.trailify.core.ui.PHOTO_TILE_SIZE
 import com.trailify.core.ui.PhotoTile
 import com.trailify.core.ui.UiState
+import com.trailify.core.ui.UserAvatar
 import com.trailify.feature.discover.STAR_COLOR
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -64,7 +65,12 @@ private val DATE_FORMAT = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forL
 
 /** Sekcja "Opinie" w szczegółach trasy: przycisk/wskazówka oceny i lista recenzji. */
 @Composable
-internal fun ReviewsSection(state: ReviewsUiState, viewModel: ReviewsViewModel, modifier: Modifier = Modifier) {
+internal fun ReviewsSection(
+    state: ReviewsUiState,
+    viewModel: ReviewsViewModel,
+    onOpenUser: (userId: String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var toDelete by remember { mutableStateOf<Review?>(null) }
 
     Column(modifier = modifier) {
@@ -108,6 +114,7 @@ internal fun ReviewsSection(state: ReviewsUiState, viewModel: ReviewsViewModel, 
                         canDelete = review.user.id == state.currentUserId || state.isAdmin,
                         isDeleting = state.deletingId == review.id,
                         onDelete = { toDelete = review },
+                        onOpenUser = { onOpenUser(review.user.id) },
                     )
                 }
             }
@@ -138,18 +145,26 @@ private fun Hint(text: String) {
 }
 
 @Composable
-private fun ReviewItem(review: Review, isMine: Boolean, canDelete: Boolean, isDeleting: Boolean, onDelete: () -> Unit) {
+private fun ReviewItem(
+    review: Review,
+    isMine: Boolean,
+    canDelete: Boolean,
+    isDeleting: Boolean,
+    onDelete: () -> Unit,
+    onOpenUser: () -> Unit,
+) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
+            // autora opinii da się otworzyć: awatar i nazwa prowadzą do jego profilu
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(onClick = onOpenUser),
             ) {
-                Text(review.user.displayName.take(1).uppercase(), style = MaterialTheme.typography.titleMedium)
-            }
-            Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(review.user.displayName + if (isMine) " (Ty)" else "", style = MaterialTheme.typography.titleSmall)
-                Text(DATE_FORMAT.format(review.createdAt), style = MaterialTheme.typography.bodySmall)
+                UserAvatar(review.user.displayName, review.user.id, review.user.avatarUrl, size = 36.dp)
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(review.user.displayName + if (isMine) " (Ty)" else "", style = MaterialTheme.typography.titleSmall)
+                    Text(DATE_FORMAT.format(review.createdAt), style = MaterialTheme.typography.bodySmall)
+                }
             }
             if (canDelete) {
                 if (isDeleting) {

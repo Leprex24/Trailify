@@ -160,6 +160,28 @@ class RouteRepository(
             .query(summaryMapper)
             .list()
 
+    fun countPublicByUser(userId: UUID): Long =
+        jdbc.sql("select count(*) from route where user_id = :userId and is_public")
+            .param("userId", userId)
+            .query(RowMapper<Long> { rs, _ -> rs.getLong(1) })
+            .single()
+
+    /** Publiczne trasy użytkownika (to widzą inni na jego profilu), od najnowszej. */
+    fun listPublicByUser(userId: UUID, page: PageRequest): List<RouteSummaryResponse> =
+        jdbc.sql(
+            """
+            ${selectSummary(distanceColumn = false)}
+            where r.user_id = :userId and r.is_public
+            order by r.created_at desc, r.id desc
+            limit :limit offset :offset
+            """.trimIndent(),
+        )
+            .param("userId", userId)
+            .param("limit", page.size)
+            .param("offset", page.offset)
+            .query(summaryMapper)
+            .list()
+
     /** Zapisuje trasę użytkownikowi (gwiazdka). Ponowny zapis nic nie zmienia. */
     fun save(userId: UUID, routeId: Long) {
         jdbc.sql("insert into saved_route (user_id, route_id) values (:userId, :routeId) on conflict do nothing")

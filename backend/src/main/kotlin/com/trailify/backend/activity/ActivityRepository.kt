@@ -83,27 +83,38 @@ class ActivityRepository(
             .optional()
             .orElse(null)
 
-    fun countByUser(userId: UUID): Long =
-        jdbc.sql("select count(*) from activity where user_id = :userId")
-            .param("userId", userId)
+    fun countByUser(userId: UUID, range: ActivityRange = ActivityRange.ALL): Long {
+        val (where, params) = userAndRange(userId, range)
+        return jdbc.sql("select count(*) from activity where $where")
+            .params(params)
             .query(RowMapper<Long> { rs, _ -> rs.getLong(1) })
             .single()
+    }
 
-    fun listByUser(userId: UUID, page: PageRequest): List<ActivitySummaryResponse> =
-        jdbc.sql(
+    fun listByUser(userId: UUID, page: PageRequest, range: ActivityRange = ActivityRange.ALL): List<ActivitySummaryResponse> {
+        val (where, params) = userAndRange(userId, range)
+        return jdbc.sql(
             """
             select id, type, route_id, start_time, end_time, distance, duration_seconds, avg_pace, step_count
             from activity
-            where user_id = :userId
+            where $where
             order by start_time desc, id desc
             limit :limit offset :offset
             """.trimIndent(),
         )
-            .param("userId", userId)
-            .param("limit", page.size)
-            .param("offset", page.offset)
+            .params(params + mapOf("limit" to page.size, "offset" to page.offset))
             .query(summaryMapper)
             .list()
+    }
+
+    /** Warunek "aktywności tego użytkownika z tego przedziału czasu" razem z parametrami. */
+    private fun userAndRange(userId: UUID, range: ActivityRange): Pair<String, Map<String, Any>> {
+        val where = mutableListOf("user_id = :userId")
+        val params = linkedMapOf<String, Any>("userId" to userId)
+        range.from?.let { params["from"] = OffsetDateTime.ofInstant(it, ZoneOffset.UTC); where += "start_time >= :from" }
+        range.to?.let { params["to"] = OffsetDateTime.ofInstant(it, ZoneOffset.UTC); where += "start_time < :to" }
+        return where.joinToString(" and ") to params
+    }
 
     /** Czy użytkownik może wybrać tę trasę: jest jego albo publiczna. */
     fun routeVisibleTo(userId: UUID, routeId: Long): Boolean =
