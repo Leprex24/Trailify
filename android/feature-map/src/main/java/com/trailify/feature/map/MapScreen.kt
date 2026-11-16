@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.RectF
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -27,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -60,7 +62,9 @@ import com.trailify.core.domain.model.BoundingBox
 import com.trailify.core.domain.model.LatLng as DomainLatLng
 import com.trailify.core.domain.model.MapLayerType
 import com.trailify.core.domain.model.RecordingStatus
+import com.trailify.core.domain.recording.distanceMeters
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.koin.compose.viewmodel.koinViewModel
 import org.maplibre.android.camera.CameraPosition
@@ -144,6 +148,41 @@ private fun hasFineLocation(context: android.content.Context) =
 
 private const val FOLLOW_ZOOM = 15.0
 
+private const val POI_MESSAGE_MS = 4_000L
+
+// Kolor ciekawych punktów w menu Warstwy: taki sam jak niezebrane punkty na mapie.
+private const val POI_MENU_COLOR = "#F9A825"
+
+// Tyle dp wokół dotknięcia szukamy ciekawego punktu (palec jest większy niż kropka).
+private const val POI_TOUCH_DP = 24
+
+// Po wybraniu punktu kamera przybliża się co najmniej do tego poziomu.
+private const val POI_FOCUS_ZOOM = 16.0
+private const val POI_FOCUS_MS = 600
+
+/** Co dotknięto na warstwie ciekawych punktów. */
+private sealed interface PoiHit {
+    data class Single(val id: Long) : PoiHit
+
+    /** Kółko z liczbą punktów w danym miejscu. */
+    data class Cluster(val latitude: Double, val longitude: Double) : PoiHit
+}
+
+/** Pinezka albo kółko pod dotknięciem (null, gdy nic tam nie ma). */
+private fun MapLibreMap.poiAt(point: LatLng, density: Float): PoiHit? {
+    val screen = projection.toScreenLocation(point)
+    val radius = POI_TOUCH_DP * density
+    val area = RectF(screen.x - radius, screen.y - radius, screen.x + radius, screen.y + radius)
+    val feature = queryRenderedFeatures(area, POI_LAYER, POI_CLUSTER_LAYER).firstOrNull() ?: return null
+    return runCatching {
+        if (feature.getStringProperty("kind") == "cluster") {
+            PoiHit.Cluster(feature.getNumberProperty("lat").toDouble(), feature.getNumberProperty("lng").toDouble())
+        } else {
+            PoiHit.Single(feature.getNumberProperty("id").toLong())
+        }
+    }.getOrNull()
+}
+
 // Kamera jest "na użytkowniku", gdy jej środek jest bliżej niż tyle metrów od jego pozycji.
 private const val CENTERED_METERS = 30.0
 
@@ -155,9 +194,11 @@ private const val CENTERED_METERS = 30.0
 @Composable
 fun MapScreen(
     onOpenSummary: () -> Unit,
+    onProposePoi: (latitude: Double, longitude: Double) -> Unit,
     panelVisible: Boolean = true,
     modifier: Modifier = Modifier,
     viewModel: MapViewModel = koinViewModel(),
+    poiViewModel: MapPoiViewModel = koinViewModel(),
 ) {
     val context = LocalContext.current
     val mapView = rememberMapView()
@@ -166,6 +207,11 @@ fun MapScreen(
     val userLocation by viewModel.userLocation.collectAsStateWithLifecycle()
     val plan by viewModel.plan.collectAsStateWithLifecycle()
     val navigation by viewModel.navigation.collectAsStateWithLifecycle()
+    val poiState by poiViewModel.ui.collectAsStateWithLifecycle()
+    // miejsce przytrzymane palcem: pytamy, czy zaproponować tam ciekawy punkt
+    var proposeAt by remember { mutableStateOf<DomainLatLng?>(null) }
+    // przybliżenie mapy (do grupowania punktów w kółka)
+    var mapZoom by remember { mutableStateOf(START_POSITION.zoom) }
     var style by remember { mutableStateOf<Style?>(null) }
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
 
@@ -191,6 +237,7 @@ fun MapScreen(
     // Zgodę sprawdzamy przy każdym powrocie do aplikacji (mogła zostać przyznana w ustawieniach).
     LifecycleStartEffect(Unit) {
         hasLocationPermission = hasFineLocation(context)
+        poiViewModel.refresh()
         onStopOrDispose { }
     }
     LifecycleStartEffect(hasLocationPermission) {
@@ -214,10 +261,44 @@ fun MapScreen(
         style = null
         styleOption.load(googleMap) { loadedStyle ->
             addThematicLayers(loadedStyle, satellite = styleOption == MapStyleOption.SATELLITE)
+            addPoiLayers(loadedStyle, context.resources.displayMetrics.density)
             addPlanLayers(loadedStyle)
             addRecordingLayers(loadedStyle)
             style = loadedStyle
             viewModel.onCameraIdle(googleMap.visibleBox(), googleMap.cameraPosition.zoom)
+            poiViewModel.onCameraIdle(googleMap.visibleBox())
+            mapZoom = googleMap.cameraPosition.zoom
+        }
+    }
+
+    // Ciekawe punkty na mapie (kolor zależy od zebrania, wybrany jest większy).
+    // Pinezki z ikoną zebrania, większe w zasięgu; przy oddaleniu grupują się w kółka z liczbą.
+    val shownPois = if (poiState.enabled) poiState.pois else emptyList()
+    val poiInRange = remember(userLocation, shownPois, poiState.collectedIds) {
+        poiInRangeIds(userLocation, shownPois, poiState.collectedIds)
+    }
+    LaunchedEffect(style, shownPois, poiState.collectedIds, poiState.selectedId, poiInRange, mapZoom) {
+        val loadedStyle = style ?: return@LaunchedEffect
+        val density = context.resources.displayMetrics.density
+        val result = withContext(Dispatchers.Default) {
+            poisGeoJson(shownPois, poiState.collectedIds, poiState.selectedId, poiInRange, mapZoom)
+        }
+        // ikony kółek muszą być w stylu, zanim dane się do nich odwołają
+        result.clusterCounts.forEach { ensureClusterImage(loadedStyle, it, density) }
+        loadedStyle.getSourceAs<GeoJsonSource>(POI_SOURCE)?.setGeoJson(result.json)
+    }
+    // Wybrany punkt: kamera przenosi się do niego (okno z informacjami jest na środku ekranu).
+    LaunchedEffect(map, poiState.selectedId) {
+        val googleMap = map ?: return@LaunchedEffect
+        val poi = poiState.selected ?: return@LaunchedEffect
+        viewModel.following = false
+        val zoom = maxOf(googleMap.cameraPosition.zoom, POI_FOCUS_ZOOM)
+        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(poi.latitude, poi.longitude), zoom), POI_FOCUS_MS)
+    }
+    LaunchedEffect(poiState.message) {
+        if (poiState.message != null) {
+            delay(POI_MESSAGE_MS)
+            poiViewModel.dismissMessage()
         }
     }
 
@@ -372,6 +453,8 @@ fun MapScreen(
                             }
                             viewModel.lastCameraZoom = googleMap.cameraPosition.zoom
                             viewModel.onCameraIdle(googleMap.visibleBox(), googleMap.cameraPosition.zoom)
+                            poiViewModel.onCameraIdle(googleMap.visibleBox())
+                            mapZoom = googleMap.cameraPosition.zoom
                         }
                         // przesunięcie mapy palcem wyłącza podążanie kamery za pozycją
                         googleMap.addOnCameraMoveStartedListener { reason ->
@@ -379,13 +462,36 @@ fun MapScreen(
                                 viewModel.following = false
                             }
                         }
-                        // w trybie planowania dotknięcie mapy dodaje punkt trasy
+                        // w trybie planowania dotknięcie mapy dodaje punkt trasy, poza nim wybiera ciekawy punkt
                         googleMap.addOnMapClickListener { point ->
                             if (viewModel.plan.value.editing) {
                                 viewModel.addWaypoint(DomainLatLng(point.latitude, point.longitude))
                                 true
                             } else {
+                                when (val hit = googleMap.poiAt(point, context.resources.displayMetrics.density)) {
+                                    is PoiHit.Single -> {
+                                        poiViewModel.select(hit.id)
+                                        true
+                                    }
+                                    // kółko z liczbą: przybliżamy, aż punkty się rozdzielą
+                                    is PoiHit.Cluster -> {
+                                        val zoom = maxOf(googleMap.cameraPosition.zoom + 2.0, POI_CLUSTER_MAX_ZOOM)
+                                        googleMap.animateCamera(
+                                            CameraUpdateFactory.newLatLngZoom(LatLng(hit.latitude, hit.longitude), zoom),
+                                        )
+                                        true
+                                    }
+                                    null -> false
+                                }
+                            }
+                        }
+                        // przytrzymanie palca: propozycja nowego ciekawego punktu w tym miejscu
+                        googleMap.addOnMapLongClickListener { point ->
+                            if (viewModel.plan.value.editing) {
                                 false
+                            } else {
+                                proposeAt = DomainLatLng(point.latitude, point.longitude)
+                                true
                             }
                         }
                         // kompas (widać go tylko po obróceniu mapy) z lewej, bo z prawej są przyciski sterujące
@@ -437,6 +543,17 @@ fun MapScreen(
                             onClick = { viewModel.toggleLayer(type) },
                         )
                     }
+                    DropdownMenuItem(
+                        leadingIcon = { Checkbox(checked = poiState.enabled, onCheckedChange = null) },
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(modifier = Modifier.size(12.dp).background(Color(android.graphics.Color.parseColor(POI_MENU_COLOR)), CircleShape))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Ciekawe punkty")
+                            }
+                        },
+                        onClick = poiViewModel::toggleEnabled,
+                    )
                     HorizontalDivider()
                     Text(
                         "Podkład",
@@ -570,5 +687,42 @@ fun MapScreen(
                 )
             }
         }
+
+        // Komunikat o zebranym punkcie.
+        poiState.message?.let { text ->
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 64.dp, start = 64.dp, end = 68.dp),
+            ) {
+                Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
+            }
+        }
+    }
+
+    poiState.selected?.let { poi ->
+        val meters = userLocation?.let { distanceMeters(it, DomainLatLng(poi.latitude, poi.longitude)) }
+        PoiDialog(
+            poi = poi,
+            meters = meters,
+            collected = poi.id in poiState.collectedIds,
+            onCollect = { poiViewModel.collect(poi.id) },
+            onDismiss = { poiViewModel.select(null) },
+        )
+    }
+
+    proposeAt?.let { place ->
+        AlertDialog(
+            onDismissRequest = { proposeAt = null },
+            title = { Text("Zaproponować punkt w tym miejscu?") },
+            text = { Text("Otworzymy formularz z zaznaczonym miejscem. Punkt pojawi się na mapie po zatwierdzeniu przez administratora.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    proposeAt = null
+                    onProposePoi(place.latitude, place.longitude)
+                }) { Text("Zaproponuj") }
+            },
+            dismissButton = { TextButton(onClick = { proposeAt = null }) { Text("Anuluj") } },
+        )
     }
 }

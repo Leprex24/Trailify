@@ -2,6 +2,8 @@ package com.trailify.backend.social
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import com.trailify.backend.web.ApiException
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.springframework.http.HttpStatus
 
 class SocialRulesTest {
@@ -42,5 +44,29 @@ class SocialRulesTest {
     @Test
     fun `profil publiczny mozna obserwowac`() {
         assertThat(followRejection(isSelf = false, targetIsPrivate = false, alreadyFollowing = false)).isNull()
+    }
+
+    // --- wyszukiwanie osób ---
+
+    @Test
+    fun `fraza wyszukiwania jest przycinana`() {
+        assertThat(parseUserQuery("  Anna  ")).isEqualTo("Anna")
+    }
+
+    @Test
+    fun `zbyt krotka albo zbyt dluga fraza to VALIDATION_ERROR`() {
+        listOf(null, "", " a ", "x".repeat(USER_QUERY_MAX + 1)).forEach { raw ->
+            assertThatThrownBy { parseUserQuery(raw) }
+                .isInstanceOf(ApiException::class.java)
+                .extracting("code").isEqualTo("VALIDATION_ERROR")
+        }
+    }
+
+    @Test
+    fun `znaki specjalne LIKE sa traktowane doslownie`() {
+        assertThat(escapeLike("a_b")).isEqualTo("a\\_b")
+        assertThat(escapeLike("100%")).isEqualTo("100\\%")
+        assertThat(escapeLike("a\\b")).isEqualTo("a\\\\b")
+        assertThat(escapeLike("Anna")).isEqualTo("Anna")
     }
 }

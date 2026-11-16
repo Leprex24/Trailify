@@ -44,6 +44,8 @@ tags:
     description: Warstwy tematyczne mapy z OpenStreetMap (W1)
   - name: Recenzje
     description: Oceny i zdjęcia do ukończonych tras (W20, W21)
+  - name: Oś czasu
+    description: Wpisy osób obserwowanych, polubienia i komentarze
   - name: Ciekawe punkty
     description: Przeglądanie, zgłaszanie i zbieranie POI (W4, W22–W24)
   - name: Admin
@@ -192,6 +194,80 @@ paths:
                   $ref: '#/components/schemas/PoiCollectionEntry'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /users:
+    get:
+      tags: [Społeczność]
+      operationId: searchUsers
+      summary: Wyszukiwanie osób po nazwie
+      description: |
+        Fraza (`query`) ma od 2 do 50 znaków i jest szukana w nazwie wyświetlanej (bez rozróżniania wielkości liter).
+        Najpierw nazwy zaczynające się od frazy, potem pozostałe alfabetycznie. Bez własnego konta i bez kont
+        zablokowanych. Adresów e-mail nie przeszukuje ani nie zwraca. Profile prywatne też są na liście (nazwa
+        i avatar są jawne).
+      x-owner: Kacper
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema: { type: string, minLength: 2, maxLength: 50 }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Strona użytkowników
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /me/followers/{followerId}:
+    delete:
+      tags: [Społeczność]
+      operationId: removeFollower
+      summary: Usuń obserwującego
+      description: |
+        Wskazana osoba przestaje obserwować zalogowanego użytkownika (to nie jest odobserwowanie przez niego).
+        Działa też, gdy takiej obserwacji nie było. Osoba może zaobserwować ponownie, jeśli profil nie jest prywatny.
+      x-owner: Kacper
+      parameters:
+        - name: followerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Osoba nie obserwuje już zalogowanego użytkownika
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /users/{userId}/activities:
+    get:
+      tags: [Społeczność]
+      operationId: getUserActivities
+      summary: Udostępnione aktywności użytkownika
+      description: |
+        Tylko aktywności z `isShared = true` (domyślnie aktywności są prywatne), od najnowszych.
+        Dla profilu prywatnego cudzego 403 `PRIVATE_PROFILE`.
+      x-owner: Kacper
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Strona aktywności
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /users/{userId}:
     get:
       tags: [Społeczność]
@@ -754,7 +830,10 @@ paths:
     get:
       tags: [Aktywności]
       operationId: getActivity
-      summary: Szczegóły aktywności (tylko właściciel)
+      summary: Szczegóły aktywności (własna albo udostępniona)
+      description: |
+        Własną aktywność widać zawsze. Cudzą tylko wtedy, gdy jest udostępniona (`isShared`) i profil właściciela
+        nie jest prywatny; w innym wypadku 404.
       x-owner: Kacper
       responses:
         '200':
@@ -779,6 +858,37 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+  /activities/{activityId}/share:
+    parameters:
+      - $ref: '#/components/parameters/ActivityId'
+    put:
+      tags: [Aktywności]
+      operationId: shareActivity
+      summary: Udostępnij aktywność
+      description: |
+        Aktywności są domyślnie prywatne. Po udostępnieniu widać je na profilu właściciela i na osi czasu jego
+        obserwujących. Tylko właściciel; ponowne udostępnienie nic nie zmienia.
+      x-owner: Kacper
+      responses:
+        '204':
+          description: Aktywność udostępniona
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Aktywności]
+      operationId: unshareActivity
+      summary: Cofnij udostępnienie aktywności
+      description: Aktywność znów widzi tylko właściciel, a wpis znika z osi czasu.
+      x-owner: Kacper
+      responses:
+        '204':
+          description: Aktywność jest prywatna
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /activities/{activityId}/points:
     parameters:
       - $ref: '#/components/parameters/ActivityId'
@@ -786,6 +896,7 @@ paths:
       tags: [Aktywności]
       operationId: getActivityPoints
       summary: Punkty GPS aktywności (wraz z oznaczeniem punktów odtworzonych po utracie sygnału GPS)
+      description: Te same zasady widoczności co `GET /activities/{activityId}`.
       x-owner: Kacper
       responses:
         '200':
@@ -798,6 +909,127 @@ paths:
                   $ref: '#/components/schemas/GpsPoint'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /feed:
+    get:
+      tags: [Oś czasu]
+      operationId: getFeed
+      summary: Oś czasu osób obserwowanych
+      description: |
+        Wpisy osób obserwowanych przez zalogowanego użytkownika, od najnowszych: opublikowana trasa, udostępniona
+        aktywność, ocena trasy, zebrany ciekawy punkt. Wpis jest widoczny, dopóki jego obiekt jest publiczny
+        (trasa publiczna, aktywność udostępniona, punkt zatwierdzony), a profil autora nie jest prywatny
+        i konto nie jest zablokowane. Własnych wpisów nie ma na liście.
+      x-owner: Kacper
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Strona wpisów
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /feed/{eventId}/like:
+    parameters:
+      - $ref: '#/components/parameters/EventId'
+    put:
+      tags: [Oś czasu]
+      operationId: likeFeedItem
+      summary: Polub wpis
+      description: Ponowne polubienie nic nie zmienia. Ukryty albo nieistniejący wpis to 404.
+      x-owner: Kacper
+      responses:
+        '204':
+          description: Wpis polubiony
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Oś czasu]
+      operationId: unlikeFeedItem
+      summary: Cofnij polubienie
+      description: Działa zawsze, także gdy wpis nie był polubiony.
+      x-owner: Kacper
+      responses:
+        '204':
+          description: Polubienie cofnięte
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /feed/{eventId}/comments:
+    parameters:
+      - $ref: '#/components/parameters/EventId'
+    get:
+      tags: [Oś czasu]
+      operationId: getFeedComments
+      summary: Komentarze wpisu
+      description: Od najstarszych (rozmowa czytana od góry).
+      x-owner: Kacper
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Strona komentarzy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Oś czasu]
+      operationId: addFeedComment
+      summary: Dodaj komentarz
+      description: |
+        `replyToUserId` oznacza osobę, której komentarz odpowiada. Można oznaczyć tylko autora wpisu albo osobę,
+        która już komentowała ten wpis (inaczej 400 `VALIDATION_ERROR`).
+      x-owner: Kacper
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreate'
+      responses:
+        '201':
+          description: Komentarz dodany
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /feed/comments/{commentId}:
+    delete:
+      tags: [Oś czasu]
+      operationId: deleteFeedComment
+      summary: Usuń komentarz
+      description: Autor komentarza, autor wpisu albo administrator.
+      x-owner: Kacper
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204':
+          description: Komentarz usunięty
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
   /pois:
@@ -1185,6 +1417,11 @@ components:
       in: path
       required: true
       schema: { type: integer, format: int64 }
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
     UserId:
       name: userId
       in: path
@@ -1256,6 +1493,11 @@ components:
     ActivityType:
       type: string
       enum: [CYCLING, RUNNING, WALKING]
+    PoiCategory:
+      type: string
+      enum: [VIEWPOINT, NATURE, HISTORIC, CULTURE, RECREATION, OTHER]
+      default: OTHER
+      description: Widoczna tylko na karcie punktu (na mapie wszystkie punkty wyglądają tak samo)
     PoiStatus:
       type: string
       enum: [PENDING, APPROVED, REJECTED]
@@ -1550,6 +1792,9 @@ components:
         durationSeconds: { type: integer, nullable: true }
         avgPace: { type: number, format: double, nullable: true, description: min/km }
         stepCount: { type: integer, nullable: true }
+        isShared:
+          type: boolean
+          description: Czy aktywność jest udostępniona (domyślnie false, widzi ją tylko właściciel)
     Activity:
       allOf:
         - $ref: '#/components/schemas/ActivitySummary'
@@ -1577,6 +1822,10 @@ components:
         durationSeconds: { type: integer, minimum: 0 }
         avgPace: { type: number, format: double, minimum: 0 }
         stepCount: { type: integer, minimum: 0 }
+        isShared:
+          type: boolean
+          default: false
+          description: Udostępnij od razu po zapisaniu
         points:
           type: array
           minItems: 2
@@ -1628,9 +1877,125 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/Review'
+    FeedItem:
+      type: object
+      required: [id, type, createdAt, author, likeCount, commentCount, likedByMe]
+      description: |
+        Wypełnione są tylko pola pasujące do `type`: ROUTE_PUBLISHED (`route`), ACTIVITY (`activity`, a przy
+        ukończeniu publicznej trasy także `route`), REVIEW (`route`, `review`), POI_COLLECTED (`poi`).
+      properties:
+        id: { type: integer, format: int64 }
+        type:
+          type: string
+          enum: [ROUTE_PUBLISHED, ACTIVITY, REVIEW, POI_COLLECTED]
+        createdAt: { type: string, format: date-time }
+        author:
+          $ref: '#/components/schemas/UserSummary'
+        route:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/FeedRoute'
+        activity:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/FeedActivity'
+        review:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/FeedReview'
+        poi:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/FeedPoi'
+        geometry:
+          nullable: true
+          description: Uproszczony obrys trasy albo aktywności (tolerancja ok. 20 m) do podglądu na karcie
+          allOf:
+            - $ref: '#/components/schemas/GeoJsonLineString'
+        photoUrl: { type: string, format: uri, nullable: true, description: Zdjęcie trasy, oceny albo punktu }
+        likeCount: { type: integer }
+        commentCount: { type: integer }
+        likedByMe: { type: boolean }
+    FeedRoute:
+      type: object
+      required: [id, name, activityType]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        activityType:
+          $ref: '#/components/schemas/ActivityType'
+        totalDistance: { type: number, format: double, nullable: true, description: Metry }
+        durationSeconds: { type: integer, nullable: true }
+    FeedActivity:
+      type: object
+      required: [id, type]
+      properties:
+        id: { type: integer, format: int64 }
+        type:
+          $ref: '#/components/schemas/ActivityType'
+        distance: { type: number, format: double, nullable: true, description: Metry }
+        durationSeconds: { type: integer, nullable: true }
+        avgPace: { type: number, format: double, nullable: true, description: min/km }
+    FeedReview:
+      type: object
+      required: [rating]
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string, nullable: true }
+    FeedPoi:
+      type: object
+      required: [id, name, category]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        category:
+          $ref: '#/components/schemas/PoiCategory'
+    FeedPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/FeedItem'
+    CommentCreate:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 1000 }
+        replyToUserId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Osoba, której komentarz odpowiada (autor wpisu albo ktoś, kto już komentował)
+    Comment:
+      type: object
+      required: [id, author, body, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        author:
+          $ref: '#/components/schemas/UserSummary'
+        replyTo:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/UserSummary'
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+    CommentPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Comment'
     Poi:
       type: object
-      required: [id, name, latitude, longitude]
+      required: [id, name, latitude, longitude, category]
       properties:
         id: { type: integer, format: int64 }
         name: { type: string }
@@ -1638,6 +2003,8 @@ components:
         latitude: { type: number, format: double }
         longitude: { type: number, format: double }
         photoUrl: { type: string, format: uri, nullable: true }
+        category:
+          $ref: '#/components/schemas/PoiCategory'
     PoiAdmin:
       allOf:
         - $ref: '#/components/schemas/Poi'
@@ -1660,6 +2027,8 @@ components:
         longitude: { type: number, format: double, minimum: -180, maximum: 180 }
         photo:
           $ref: '#/components/schemas/PhotoInput'
+        category:
+          $ref: '#/components/schemas/PoiCategory'
     PoiUpdate:
       type: object
       properties:
@@ -1669,6 +2038,8 @@ components:
         longitude: { type: number, format: double, minimum: -180, maximum: 180 }
         photo:
           $ref: '#/components/schemas/PhotoInput'
+        category:
+          $ref: '#/components/schemas/PoiCategory'
     PoiAdminPage:
       allOf:
         - $ref: '#/components/schemas/PageMeta'

@@ -28,9 +28,9 @@ class ActivityRepository(
         val id = jdbc.sql(
             """
             insert into activity (client_id, user_id, route_id, type, start_time, end_time,
-                                  distance, duration_seconds, avg_pace, step_count, geometry)
+                                  distance, duration_seconds, avg_pace, step_count, is_shared, geometry)
             values (:clientId, :userId, :routeId, :type, :startTime, :endTime,
-                    :distance, :duration, :pace, :steps, ST_SetSRID(ST_GeomFromText(:wkt), 4326))
+                    :distance, :duration, :pace, :steps, :shared, ST_SetSRID(ST_GeomFromText(:wkt), 4326))
             returning id
             """.trimIndent(),
         )
@@ -44,6 +44,7 @@ class ActivityRepository(
             .param("duration", request.durationSeconds, Types.INTEGER)
             .param("pace", request.avgPace, Types.DOUBLE)
             .param("steps", request.stepCount, Types.INTEGER)
+            .param("shared", request.isShared ?: false)
             .param("wkt", line)
             .query(RowMapper<Long> { rs, _ -> rs.getLong(1) })
             .single()
@@ -83,6 +84,51 @@ class ActivityRepository(
             .optional()
             .orElse(null)
 
+    /**
+     * Aktywność widoczna dla oglądającego: własna albo udostępniona przez osobę z aktywnym, nieprywatnym profilem.
+     * Cudza prywatna (i każda aktywność prywatnego profilu) wygląda jak nieistniejąca.
+     */
+    fun findViewable(viewerId: UUID, activityId: Long): ActivityResponse? =
+        jdbc.sql(
+            "$SELECT_DETAILS where id = :id and (user_id = :viewer or (is_shared and $OWNER_VISIBLE))",
+        )
+            .param("id", activityId)
+            .param("viewer", viewerId)
+            .query(detailsMapper)
+            .optional()
+            .orElse(null)
+
+    /** Udostępnia albo ukrywa aktywność. Zwraca false, gdy aktywność nie istnieje albo nie jest własna. */
+    fun setShared(userId: UUID, activityId: Long, shared: Boolean): Boolean =
+        jdbc.sql("update activity set is_shared = :shared where id = :id and user_id = :userId")
+            .param("shared", shared)
+            .param("id", activityId)
+            .param("userId", userId)
+            .update() > 0
+
+    fun countSharedByUser(userId: UUID): Long =
+        jdbc.sql("select count(*) from activity where user_id = :userId and is_shared")
+            .param("userId", userId)
+            .query(RowMapper<Long> { rs, _ -> rs.getLong(1) })
+            .single()
+
+    /** Udostępnione aktywności użytkownika (do oglądania na jego profilu), od najnowszych. */
+    fun listSharedByUser(userId: UUID, page: PageRequest): List<ActivitySummaryResponse> =
+        jdbc.sql(
+            """
+            select id, type, route_id, start_time, end_time, distance, duration_seconds, avg_pace, step_count, is_shared
+            from activity
+            where user_id = :userId and is_shared
+            order by start_time desc, id desc
+            limit :limit offset :offset
+            """.trimIndent(),
+        )
+            .param("userId", userId)
+            .param("limit", page.size)
+            .param("offset", page.offset)
+            .query(summaryMapper)
+            .list()
+
     fun countByUser(userId: UUID, range: ActivityRange = ActivityRange.ALL): Long {
         val (where, params) = userAndRange(userId, range)
         return jdbc.sql("select count(*) from activity where $where")
@@ -95,7 +141,7 @@ class ActivityRepository(
         val (where, params) = userAndRange(userId, range)
         return jdbc.sql(
             """
-            select id, type, route_id, start_time, end_time, distance, duration_seconds, avg_pace, step_count
+            select id, type, route_id, start_time, end_time, distance, duration_seconds, avg_pace, step_count, is_shared
             from activity
             where $where
             order by start_time desc, id desc
@@ -159,10 +205,14 @@ class ActivityRepository(
         const val BATCH_SIZE = 1000
 
         const val SELECT_DETAILS = """
-            select id, type, route_id, start_time, end_time, distance, duration_seconds, avg_pace, step_count,
+            select id, type, route_id, start_time, end_time, distance, duration_seconds, avg_pace, step_count, is_shared,
                    ST_AsText(geometry) as geometry_wkt
             from activity
         """
+
+        /** Właściciel aktywności ma aktywne konto i profil nieprywatny (warunek dla cudzych aktywności). */
+        const val OWNER_VISIBLE =
+            "exists (select 1 from profile o where o.id = activity.user_id and o.status = 'ACTIVE' and not o.is_private)"
 
         val summaryMapper = RowMapper<ActivitySummaryResponse> { rs, _ ->
             ActivitySummaryResponse(
@@ -175,6 +225,7 @@ class ActivityRepository(
                 durationSeconds = rs.getNullableInt("duration_seconds"),
                 avgPace = rs.getNullableDouble("avg_pace"),
                 stepCount = rs.getNullableInt("step_count"),
+                isShared = rs.getBoolean("is_shared"),
             )
         }
 
@@ -189,6 +240,7 @@ class ActivityRepository(
                 durationSeconds = rs.getNullableInt("duration_seconds"),
                 avgPace = rs.getNullableDouble("avg_pace"),
                 stepCount = rs.getNullableInt("step_count"),
+                isShared = rs.getBoolean("is_shared"),
                 geometry = parseLineStringWkt(rs.getString("geometry_wkt")),
             )
         }

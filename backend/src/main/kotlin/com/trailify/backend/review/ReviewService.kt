@@ -4,6 +4,7 @@ import com.trailify.backend.account.ProfileRecord
 import com.trailify.backend.common.PageRequest
 import com.trailify.backend.common.PageResponse
 import com.trailify.backend.common.pageOf
+import com.trailify.backend.feed.FeedRepository
 import com.trailify.backend.route.RouteService
 import com.trailify.backend.route.validationError
 import com.trailify.backend.web.ApiException
@@ -16,6 +17,7 @@ import org.springframework.transaction.support.TransactionTemplate
 class ReviewService(
     private val repository: ReviewRepository,
     private val routes: RouteService,
+    private val feed: FeedRepository,
     private val transactions: TransactionTemplate,
 ) {
 
@@ -43,6 +45,7 @@ class ReviewService(
             transactions.execute {
                 val reviewId = repository.insert(user.id, routeId, request)
                 repository.insertPhotos(reviewId, request.photos.orEmpty())
+                feed.addReview(reviewId)
                 reviewId
             }!!
         } catch (e: DuplicateKeyException) {

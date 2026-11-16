@@ -34,6 +34,8 @@ data class UserListUiState(
     val error: String? = null,
     /** Profil prywatny: lista jest ukryta. */
     val hidden: Boolean = false,
+    /** Krótki komunikat o nieudanym usunięciu obserwującego. */
+    val message: String? = null,
 )
 
 /** Lista obserwujących albo obserwowanych danego użytkownika, strona po stronie. */
@@ -41,7 +43,12 @@ class UserListViewModel(
     private val userId: String,
     private val kind: UserListKind,
     private val social: SocialRepository,
+    /** Id zalogowanego użytkownika; dla własnej listy obserwujących można kogoś usunąć. */
+    meId: String? = null,
 ) : ViewModel() {
+
+    /** Tylko na własnej liście obserwujących: usunięcie osoby, która nas obserwuje. */
+    val canRemove: Boolean = kind == UserListKind.FOLLOWERS && meId != null && userId == meId
 
     private val _state = MutableStateFlow(UserListUiState())
     val state: StateFlow<UserListUiState> = _state.asStateFlow()
@@ -60,6 +67,24 @@ class UserListViewModel(
         _state.update { it.copy(isLoadingMore = true, error = null) }
         fetch()
     }
+
+    /** Usuwa osobę z obserwujących. Przy błędzie sieci zostaje na liście, a użytkownik dostaje komunikat. */
+    fun removeFollower(user: UserSummary) {
+        if (!canRemove) return
+        viewModelScope.launch {
+            try {
+                social.removeFollower(user.id)
+                _state.update { state -> state.copy(items = state.items.filterNot { it.id == user.id }, message = null) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Usunięcie obserwującego nie powiodło się", e)
+                _state.update { it.copy(message = e.toUserMessage()) }
+            }
+        }
+    }
+
+    fun dismissMessage() = _state.update { it.copy(message = null) }
 
     private fun fetch() {
         viewModelScope.launch {

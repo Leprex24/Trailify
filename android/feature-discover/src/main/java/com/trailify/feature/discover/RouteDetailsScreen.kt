@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.trailify.core.domain.model.Route
+import com.trailify.core.ui.BackButton
 import com.trailify.core.ui.ErrorBox
 import com.trailify.core.ui.LinePreviewMap
 import com.trailify.core.ui.LoadingBox
@@ -128,7 +129,7 @@ private fun RouteDetailsContent(
     LazyColumn(modifier = modifier, contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-                TextButton(onClick = onBack) { Text("← Wstecz") }
+                BackButton(onClick = onBack)
                 Spacer(Modifier.weight(1f))
                 // gwiazdka tylko dla cudzych publicznych tras (własne są na liście "Własne")
                 val canSave = summary.isPublic && reviews.currentUserId != null && summary.owner.id != reviews.currentUserId

@@ -5,6 +5,8 @@ import com.trailify.core.domain.model.ActivityDraft
 import com.trailify.core.domain.model.ActivitySummary
 import com.trailify.core.domain.model.AdminUser
 import com.trailify.core.domain.model.BoundingBox
+import com.trailify.core.domain.model.Comment
+import com.trailify.core.domain.model.FeedItem
 import com.trailify.core.domain.model.LatLng
 import com.trailify.core.domain.model.Page
 import com.trailify.core.domain.model.Poi
@@ -66,6 +68,30 @@ interface SocialRepository {
     /** Tylko trasy publiczne tego użytkownika. */
     suspend fun routes(userId: String, page: Int = 0, size: Int = 20): Page<RouteSummary>
     suspend fun poiCollection(userId: String): List<PoiCollectionEntry>
+
+    /** Udostępnione aktywności tego użytkownika (prywatnych, czyli domyślnych, nie widać). */
+    suspend fun activities(userId: String, page: Int = 0, size: Int = 20): Page<ActivitySummary>
+
+    /** Szukanie osób po nazwie ([query] ma od 2 do 50 znaków). Bez własnego konta. */
+    suspend fun search(query: String, page: Int = 0, size: Int = 20): Page<UserSummary>
+
+    /** Wskazana osoba przestaje obserwować zalogowanego użytkownika (to nie jest odobserwowanie przez niego). */
+    suspend fun removeFollower(userId: String)
+}
+
+/** /feed: oś czasu osób obserwowanych, polubienia i komentarze. */
+interface FeedRepository {
+    /** Wpisy osób obserwowanych, od najnowszych. */
+    suspend fun feed(page: Int = 0, size: Int = 20): Page<FeedItem>
+    suspend fun like(eventId: Long)
+    suspend fun unlike(eventId: Long)
+
+    /** Komentarze od najstarszych. */
+    suspend fun comments(eventId: Long, page: Int = 0, size: Int = 50): Page<Comment>
+
+    /** [replyToUserId] oznacza osobę, której komentarz odpowiada (autor wpisu albo ktoś, kto już komentował). */
+    suspend fun addComment(eventId: Long, body: String, replyToUserId: String? = null): Comment
+    suspend fun deleteComment(commentId: Long)
 }
 
 /** /routes, /me/routes */
@@ -83,6 +109,9 @@ interface ActivityRepository {
     suspend fun save(draft: ActivityDraft): Activity
     suspend fun get(id: Long): Activity
     suspend fun delete(id: Long)
+
+    /** Udostępnia aktywność na profilu i na osi czasu (true) albo robi ją znów prywatną (false). */
+    suspend fun setShared(id: Long, shared: Boolean)
 
     /** [from] włącznie i [to] wyłącznie ograniczają listę do przedziału czasu (np. miesiąc do statystyk). */
     suspend fun getMine(page: Int = 0, size: Int = 20, from: Instant? = null, to: Instant? = null): Page<ActivitySummary>

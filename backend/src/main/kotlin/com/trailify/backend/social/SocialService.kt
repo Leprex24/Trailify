@@ -2,6 +2,8 @@ package com.trailify.backend.social
 
 import com.trailify.backend.account.ProfileRecord
 import com.trailify.backend.account.ProfileRepository
+import com.trailify.backend.activity.ActivityRepository
+import com.trailify.backend.activity.ActivitySummaryResponse
 import com.trailify.backend.common.PageRequest
 import com.trailify.backend.common.PageResponse
 import com.trailify.backend.common.pageOf
@@ -43,6 +45,7 @@ class SocialService(
     private val follows: FollowRepository,
     private val routes: RouteRepository,
     private val pois: PoiRepository,
+    private val activities: ActivityRepository,
 ) {
 
     fun profileOf(viewer: ProfileRecord, userId: UUID): PublicProfileResponse {
@@ -80,6 +83,20 @@ class SocialService(
 
     fun unfollow(viewer: ProfileRecord, userId: UUID) = follows.unfollow(viewer.id, userId)
 
+    /** Usunięcie obserwującego: [followerId] przestaje obserwować [viewer]. Działa też, gdy takiej obserwacji nie było. */
+    fun removeFollower(viewer: ProfileRecord, followerId: UUID) = follows.unfollow(followerId, viewer.id)
+
+    /** Wyszukiwanie osób po nazwie (bez własnego konta i zablokowanych). Prywatne profile też widać: nazwa i avatar są jawne. */
+    fun search(viewer: ProfileRecord, rawQuery: String?, page: PageRequest): PageResponse<UserSummaryResponse> {
+        val query = parseUserQuery(rawQuery)
+        val escaped = escapeLike(query)
+        return pageOf(
+            page,
+            profiles.countByName("%$escaped%", viewer.id),
+            profiles.searchByName("%$escaped%", "$escaped%", viewer.id, page),
+        )
+    }
+
     fun followers(viewer: ProfileRecord, userId: UUID, page: PageRequest): PageResponse<UserSummaryResponse> {
         requireVisible(viewer, findActive(userId))
         return pageOf(page, follows.countFollowers(userId), follows.followers(userId, page))
@@ -94,6 +111,12 @@ class SocialService(
     fun routesOf(viewer: ProfileRecord, userId: UUID, page: PageRequest): PageResponse<RouteSummaryResponse> {
         requireVisible(viewer, findActive(userId))
         return pageOf(page, routes.countPublicByUser(userId), routes.listPublicByUser(userId, page))
+    }
+
+    /** Udostępnione aktywności użytkownika (prywatnych, czyli domyślnych, nie widać). */
+    fun activitiesOf(viewer: ProfileRecord, userId: UUID, page: PageRequest): PageResponse<ActivitySummaryResponse> {
+        requireVisible(viewer, findActive(userId))
+        return pageOf(page, activities.countSharedByUser(userId), activities.listSharedByUser(userId, page))
     }
 
     fun collectionOf(viewer: ProfileRecord, userId: UUID): List<PoiCollectionEntryResponse> {

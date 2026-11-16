@@ -1,5 +1,6 @@
 package com.trailify.backend.social
 
+import com.trailify.backend.activity.ActivitySummaryResponse
 import com.trailify.backend.common.DEFAULT_PAGE_SIZE
 import com.trailify.backend.common.PageRequest
 import com.trailify.backend.common.PageResponse
@@ -66,6 +67,15 @@ class SocialController(private val service: SocialService) {
         authentication: Authentication,
     ): PageResponse<RouteSummaryResponse> =
         service.routesOf(authentication.currentProfile(), userId, PageRequest.of(page, size))
+
+    @GetMapping("/activities")
+    fun activities(
+        @PathVariable userId: UUID,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "$DEFAULT_PAGE_SIZE") size: Int,
+        authentication: Authentication,
+    ): PageResponse<ActivitySummaryResponse> =
+        service.activitiesOf(authentication.currentProfile(), userId, PageRequest.of(page, size))
 
     @GetMapping("/poi-collection")
     fun collection(@PathVariable userId: UUID, authentication: Authentication): List<PoiCollectionEntryResponse> =

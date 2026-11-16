@@ -5,6 +5,7 @@ import com.trailify.backend.activity.ActivityRepository
 import com.trailify.backend.common.PageRequest
 import com.trailify.backend.common.PageResponse
 import com.trailify.backend.common.pageOf
+import com.trailify.backend.feed.FeedRepository
 import com.trailify.backend.web.ApiException
 import com.trailify.backend.web.ApiFieldError
 import org.springframework.dao.DuplicateKeyException
@@ -17,6 +18,7 @@ import java.util.UUID
 class RouteService(
     private val repository: RouteRepository,
     private val activities: ActivityRepository,
+    private val feed: FeedRepository,
     private val transactions: TransactionTemplate,
 ) {
 
@@ -41,6 +43,8 @@ class RouteService(
             transactions.execute {
                 val routeId = repository.insert(user.id, request, coordinates, durationSeconds)
                 repository.insertPhotos(routeId, request.photos.orEmpty())
+                // publiczna trasa trafia na oś czasu obserwujących
+                if (request.isPublic == true) feed.addRoutePublished(routeId)
                 routeId
             }!!
         } catch (e: DuplicateKeyException) {
@@ -85,6 +89,8 @@ class RouteService(
         val route = repository.findDetails(routeId) ?: notFound()
         requireOwner(route, user)
         repository.update(routeId, update)
+        // trasa upubliczniona później też trafia na oś czasu (wpis jest jeden, więc ponowna zmiana nic nie dubluje)
+        if (update.isPublic == true) feed.addRoutePublished(routeId)
         return repository.findDetails(routeId)!!
     }
 

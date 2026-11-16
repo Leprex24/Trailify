@@ -51,6 +51,7 @@ import com.trailify.core.ui.UiState
 import com.trailify.core.ui.formatDistance
 import com.trailify.core.ui.formatDuration
 import com.trailify.core.ui.label
+import com.trailify.core.ui.swipeBetweenTabs
 import org.koin.compose.viewmodel.koinViewModel
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -91,7 +92,10 @@ fun ProfileScreen(
     when (val profile = state.profile) {
         is UiState.Loading -> LoadingBox(modifier)
         is UiState.Error -> ErrorBox(profile.message, onRetry = viewModel::load, modifier = modifier)
-        is UiState.Success -> LazyColumn(modifier = modifier, contentPadding = PaddingValues(bottom = 24.dp)) {
+        is UiState.Success -> LazyColumn(
+            modifier = modifier.swipeBetweenTabs(tabIndex, ProfileTab.entries.size) { tabIndex = it },
+            contentPadding = PaddingValues(bottom = 24.dp),
+        ) {
             item { OwnProfileHeader(profile.data, onOpenFollowers, onOpenFollowing) }
             item {
                 Column(

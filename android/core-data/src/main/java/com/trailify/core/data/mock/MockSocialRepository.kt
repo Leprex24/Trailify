@@ -1,6 +1,7 @@
 package com.trailify.core.data.mock
 
 import com.trailify.core.domain.model.AppException
+import com.trailify.core.domain.model.ActivitySummary
 import com.trailify.core.domain.model.Page
 import com.trailify.core.domain.model.PoiCollectionEntry
 import com.trailify.core.domain.model.PublicProfile
@@ -72,6 +73,20 @@ class MockSocialRepository : SocialRepository {
         delay(LATENCY_MS)
         requireVisible(userId)
         return MockData.pois.take(2).map { PoiCollectionEntry(it, Instant.parse("2026-10-20T12:00:00Z")) }
+    }
+
+    override suspend fun activities(userId: String, page: Int, size: Int): Page<ActivitySummary> =
+        pageOf(visibleList(userId) { emptyList<ActivitySummary>() }, page, size)
+
+    override suspend fun search(query: String, page: Int, size: Int): Page<UserSummary> {
+        delay(LATENCY_MS)
+        val found = users.filter { it.id != MockData.me.id && it.displayName.contains(query.trim(), ignoreCase = true) }
+        return pageOf(found, page, size)
+    }
+
+    override suspend fun removeFollower(userId: String) {
+        delay(LATENCY_MS)
+        find(userId)
     }
 
     private fun ownRoutes(userId: String) = MockData.routes.map { it.summary }.filter { it.owner.id == userId && it.isPublic }

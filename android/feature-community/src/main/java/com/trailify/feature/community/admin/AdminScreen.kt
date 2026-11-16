@@ -54,15 +54,16 @@ import com.trailify.core.domain.model.PoiAdmin
 import com.trailify.core.domain.model.PoiStatus
 import com.trailify.core.domain.model.Role
 import com.trailify.core.domain.model.UserStatus
+import com.trailify.core.ui.BackButton
 import com.trailify.core.ui.EmptyBox
 import com.trailify.core.ui.ErrorBox
 import com.trailify.core.ui.LoadingBox
 import com.trailify.core.ui.UiState
 import com.trailify.feature.community.poi.REJECT_REASON_MAX
-import org.koin.compose.viewmodel.koinViewModel
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import org.koin.compose.viewmodel.koinViewModel
 
 private val DATE_FORMAT = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("pl-PL")).withZone(ZoneId.systemDefault())
 
@@ -84,7 +85,7 @@ fun AdminScreen(
 
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            TextButton(onClick = onBack, modifier = Modifier.padding(8.dp)) { Text("← Wróć") }
+            BackButton(onClick = onBack)
             Text("Panel administratora", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 16.dp))
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 AdminTab.entries.forEachIndexed { index, tab ->

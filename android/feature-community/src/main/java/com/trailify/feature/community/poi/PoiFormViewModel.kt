@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trailify.core.domain.model.LatLng
+import com.trailify.core.domain.model.PoiCategory
 import com.trailify.core.domain.model.PoiDraft
 import com.trailify.core.domain.repository.AdminRepository
 import com.trailify.core.domain.repository.PhotoUploader
@@ -40,6 +41,8 @@ fun validatePoiDescription(description: String): String? = when {
 data class PoiFormUiState(
     val name: String = "",
     val description: String = "",
+    /** Kategoria pokazywana na karcie punktu. */
+    val category: PoiCategory = PoiCategory.OTHER,
     /** Wybrane miejsce: domyślnie aktualna pozycja, można dotknąć mapy, żeby je zmienić. */
     val position: LatLng? = null,
     val positionFromMap: Boolean = false,
@@ -78,6 +81,7 @@ class PoiFormViewModel(
 
     fun onNameChange(v: String) = _ui.update { it.copy(name = v, nameError = null, generalError = null) }
     fun onDescriptionChange(v: String) = _ui.update { it.copy(description = v, descriptionError = null) }
+    fun onCategoryChange(category: PoiCategory) = _ui.update { it.copy(category = category) }
     fun onMapTap(position: LatLng) = _ui.update { it.copy(position = position, positionFromMap = true, generalError = null) }
 
     fun onPhotoPicked(uri: String) {
@@ -115,6 +119,7 @@ class PoiFormViewModel(
             latitude = s.position!!.latitude,
             longitude = s.position.longitude,
             photo = s.photo?.uploaded,
+            category = s.category,
         )
         viewModelScope.launch {
             _ui.update { it.copy(isSending = true, generalError = null) }

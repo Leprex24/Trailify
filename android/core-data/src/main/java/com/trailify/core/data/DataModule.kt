@@ -4,6 +4,7 @@ import com.trailify.core.data.mock.MockAccountAuthRepository
 import com.trailify.core.data.api.ApiActivityRepository
 import com.trailify.core.data.api.ApiAdminRepository
 import com.trailify.core.data.api.ApiClient
+import com.trailify.core.data.api.ApiFeedRepository
 import com.trailify.core.data.api.ApiMapLayerRepository
 import com.trailify.core.data.api.ApiPoiRepository
 import com.trailify.core.data.api.ApiProfileRepository
@@ -20,6 +21,7 @@ import com.trailify.core.domain.repository.RoutePlanner
 import com.trailify.core.data.mock.MockActivityRepository
 import com.trailify.core.data.mock.MockAdminRepository
 import com.trailify.core.data.mock.MockAuthRepository
+import com.trailify.core.data.mock.MockFeedRepository
 import com.trailify.core.data.mock.MockPoiRepository
 import com.trailify.core.data.mock.MockProfileRepository
 import com.trailify.core.data.mock.MockReviewRepository
@@ -35,6 +37,7 @@ import com.trailify.core.domain.repository.AccountAuthRepository
 import com.trailify.core.domain.repository.ActivityRepository
 import com.trailify.core.domain.repository.AdminRepository
 import com.trailify.core.domain.repository.AuthRepository
+import com.trailify.core.domain.repository.FeedRepository
 import com.trailify.core.domain.repository.MapLayerRepository
 import com.trailify.core.domain.repository.PoiRepository
 import com.trailify.core.domain.repository.ProfileRepository
@@ -93,6 +96,7 @@ val dataModule = module {
         single<ReviewRepository> { ApiReviewRepository(get()) }
         single<PoiRepository> { ApiPoiRepository(get()) }
         single<SocialRepository> { ApiSocialRepository(get()) }
+        single<FeedRepository> { ApiFeedRepository(get()) }
         single<AdminRepository> { ApiAdminRepository(get()) }
         // warstwy mapy przez backend (własny Overpass); publiczne serwery Overpass tylko awaryjnie
         single<MapLayerRepository> { ApiMapLayerRepository(get(), OverpassMapLayerRepository(androidContext().cacheDir)) }
@@ -116,6 +120,7 @@ val dataModule = module {
         single<ReviewRepository> { MockReviewRepository() }
         single<PoiRepository> { MockPoiRepository() }
         single<SocialRepository> { MockSocialRepository() }
+        single<FeedRepository> { MockFeedRepository() }
         single<AdminRepository> { MockAdminRepository() }
         single<PhotoUploader> { MockPhotoUploader() }
         // bez kluczy Supabase nie ma sesji do backendu, więc warstwy idą wprost z publicznych serwerów Overpass

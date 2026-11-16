@@ -292,6 +292,13 @@ class MockActivityRepository : ActivityRepository {
         activities.removeAll { it.summary.id == id }
     }
 
+    override suspend fun setShared(id: Long, shared: Boolean) {
+        fakeNetwork()
+        val index = activities.indexOfFirst { it.summary.id == id }
+        if (index < 0) throw AppException("NOT_FOUND", "Nie znaleziono aktywności")
+        activities[index] = activities[index].let { it.copy(summary = it.summary.copy(isShared = shared)) }
+    }
+
     override suspend fun getMine(page: Int, size: Int, from: Instant?, to: Instant?): Page<ActivitySummary> {
         fakeNetwork()
         return activities.map { it.summary }
@@ -370,7 +377,7 @@ class MockPoiRepository : PoiRepository {
     override suspend fun propose(draft: PoiDraft): PoiAdmin {
         fakeNetwork()
         val item = PoiAdmin(
-            poi = Poi(MockPoiStore.nextId++, draft.name, draft.description, draft.latitude, draft.longitude, draft.photo?.url),
+            poi = Poi(MockPoiStore.nextId++, draft.name, draft.description, draft.latitude, draft.longitude, draft.photo?.url, draft.category),
             status = PoiStatus.PENDING,
             submittedBy = MockData.me,
             rejectionReason = null,
@@ -422,7 +429,7 @@ class MockAdminRepository : AdminRepository {
     override suspend fun createPoi(draft: PoiDraft): PoiAdmin {
         fakeNetwork()
         val item = PoiAdmin(
-            poi = Poi(MockPoiStore.nextId++, draft.name, draft.description, draft.latitude, draft.longitude, draft.photo?.url),
+            poi = Poi(MockPoiStore.nextId++, draft.name, draft.description, draft.latitude, draft.longitude, draft.photo?.url, draft.category),
             status = PoiStatus.APPROVED,
             submittedBy = MockData.me,
             rejectionReason = null,

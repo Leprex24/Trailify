@@ -1,6 +1,8 @@
 package com.trailify.backend.social
 
+import com.trailify.backend.route.validationError
 import com.trailify.backend.web.ApiException
+import com.trailify.backend.web.ApiFieldError
 import org.springframework.http.HttpStatus
 
 const val CODE_PRIVATE_PROFILE = "PRIVATE_PROFILE"
@@ -25,3 +27,18 @@ fun followRejection(isSelf: Boolean, targetIsPrivate: Boolean, alreadyFollowing:
     targetIsPrivate && !alreadyFollowing -> privateProfileError()
     else -> null
 }
+
+const val USER_QUERY_MIN = 2
+const val USER_QUERY_MAX = 50
+
+/** Fraza wyszukiwania osób (`query`): po obcięciu spacji od 2 do 50 znaków. Przy błędzie rzuca VALIDATION_ERROR. */
+fun parseUserQuery(raw: String?): String {
+    val query = raw?.trim().orEmpty()
+    if (query.length < USER_QUERY_MIN || query.length > USER_QUERY_MAX) {
+        throw validationError(listOf(ApiFieldError("query", "Fraza musi mieć od $USER_QUERY_MIN do $USER_QUERY_MAX znaków")))
+    }
+    return query
+}
+
+/** Znaki specjalne wzorca LIKE (`\`, `%`, `_`) traktujemy dosłownie, żeby fraza `a_b` nie pasowała do `axb`. */
+fun escapeLike(text: String): String = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

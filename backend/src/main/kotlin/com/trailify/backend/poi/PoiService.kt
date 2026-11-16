@@ -4,6 +4,7 @@ import com.trailify.backend.account.ProfileRecord
 import com.trailify.backend.common.PageRequest
 import com.trailify.backend.common.PageResponse
 import com.trailify.backend.common.pageOf
+import com.trailify.backend.feed.FeedRepository
 import com.trailify.backend.route.validationError
 import com.trailify.backend.web.ApiException
 import com.trailify.backend.web.ApiFieldError
@@ -15,6 +16,7 @@ import org.springframework.transaction.support.TransactionTemplate
 @Service
 class PoiService(
     private val repository: PoiRepository,
+    private val feed: FeedRepository,
     private val transactions: TransactionTemplate,
 ) {
 
@@ -58,6 +60,7 @@ class PoiService(
             // dwa równoczesne zebrania tego samego punktu
             throw collectRejection(0.0, alreadyCollected = true)!!
         }
+        feed.addPoiCollected(user.id, poiId)
         return PoiCollectionEntryResponse(poi.poi, collectedAt.toInstant().toString())
     }
 

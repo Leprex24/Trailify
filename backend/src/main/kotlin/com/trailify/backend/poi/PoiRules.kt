@@ -64,6 +64,7 @@ data class PoiUpdate(
     val description: String?,
     val latitude: Double?,
     val longitude: Double?,
+    val category: String? = null,
 )
 
 /** Sprawdza treść PATCH /admin/pois/{id}. Przy błędach rzuca VALIDATION_ERROR z listą pól. */
@@ -90,11 +91,19 @@ fun parsePoiUpdate(body: Map<String, Any?>): PoiUpdate {
         return value
     }
 
+    fun category(): String? {
+        if ("category" !in body) return null
+        val value = parsePoiCategory(body["category"])
+        if (value == null) errors.add(ApiFieldError("category", "Dozwolone: ${PoiCategory.entries.joinToString()}"))
+        return value?.name
+    }
+
     val update = PoiUpdate(
         name = text("name", POI_NAME_MAX),
         description = text("description", POI_DESCRIPTION_MAX),
         latitude = coordinate("latitude", 90.0),
         longitude = coordinate("longitude", 180.0),
+        category = category(),
     )
     if (errors.isNotEmpty()) throw validationError(errors)
     return update

@@ -3,10 +3,13 @@ package com.trailify.backend.security
 import com.trailify.backend.account.ProfileLookup
 import com.trailify.backend.admin.AdminController
 import com.trailify.backend.admin.AdminService
+import com.trailify.backend.feed.FeedController
+import com.trailify.backend.feed.FeedService
 import com.trailify.backend.poi.PoiController
 import com.trailify.backend.poi.PoiService
 import com.trailify.backend.route.RouteService
 import com.trailify.backend.route.SavedRouteController
+import com.trailify.backend.social.PeopleController
 import com.trailify.backend.social.SocialController
 import com.trailify.backend.social.SocialService
 import org.junit.jupiter.api.Test
@@ -29,7 +32,14 @@ import org.springframework.test.web.servlet.put
  * Bez bazy: serwisy są atrapami, sprawdzamy tylko odpowiedzi 200/401/403 warstwy HTTP.
  */
 @WebMvcTest(
-    controllers = [PoiController::class, AdminController::class, SavedRouteController::class, SocialController::class],
+    controllers = [
+        PoiController::class,
+        AdminController::class,
+        SavedRouteController::class,
+        SocialController::class,
+        PeopleController::class,
+        FeedController::class,
+    ],
 )
 @Import(SecurityConfig::class, ProfileJwtAuthenticationConverter::class)
 class EndpointSecurityTest {
@@ -48,6 +58,9 @@ class EndpointSecurityTest {
 
     @MockitoBean
     private lateinit var social: SocialService
+
+    @MockitoBean
+    private lateinit var feed: FeedService
 
     @MockitoBean
     private lateinit var profiles: ProfileLookup
@@ -178,5 +191,51 @@ class EndpointSecurityTest {
     fun `trasy i punkty cudzego profilu bez tokena daja 401`() {
         mvc.get("$someUser/routes").andExpect { status { isUnauthorized() } }
         mvc.get("$someUser/poi-collection").andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `aktywnosci cudzego profilu bez tokena daja 401`() {
+        mvc.get("$someUser/activities").andExpect { status { isUnauthorized() } }
+    }
+
+    // --- wyszukiwanie osób i usuwanie obserwującego ---
+
+    @Test
+    fun `wyszukiwanie osob bez tokena daje 401`() {
+        mvc.get("/api/v1/users?query=anna").andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `usuniecie obserwujacego bez tokena daje 401`() {
+        mvc.delete("/api/v1/me/followers/6f1c2d3e-0000-4000-8000-000000000001").andExpect { status { isUnauthorized() } }
+    }
+
+    // --- oś czasu: polubienia i komentarze ---
+
+    @Test
+    fun `os czasu bez tokena daje 401`() {
+        mvc.get("/api/v1/feed").andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `polubienie i cofniecie polubienia bez tokena daja 401`() {
+        mvc.put("/api/v1/feed/1/like").andExpect { status { isUnauthorized() } }
+        mvc.delete("/api/v1/feed/1/like").andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `komentarze bez tokena daja 401`() {
+        mvc.get("/api/v1/feed/1/comments").andExpect { status { isUnauthorized() } }
+        mvc.post("/api/v1/feed/1/comments") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"body":"Super trasa"}"""
+        }.andExpect { status { isUnauthorized() } }
+        mvc.delete("/api/v1/feed/comments/1").andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `udostepnianie aktywnosci jest tylko dla zalogowanych`() {
+        // kontroler aktywności nie jest w tym teście: sprawdzamy tylko, że ścieżka nie jest publiczna
+        mvc.put("/api/v1/activities/1/share").andExpect { status { isUnauthorized() } }
     }
 }

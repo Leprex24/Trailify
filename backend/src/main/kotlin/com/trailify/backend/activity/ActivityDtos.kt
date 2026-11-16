@@ -44,6 +44,8 @@ data class ActivityCreateRequest(
     @field:Size(min = 2, max = MAX_POINTS, message = "Aktywność musi mieć od 2 do $MAX_POINTS punktów")
     @field:Valid
     val points: List<GpsPointRequest>?,
+    /** Aktywność jest domyślnie prywatna; true udostępnia ją na profilu i na osi czasu obserwujących. */
+    @param:JsonProperty("isShared") val isShared: Boolean? = false,
 )
 
 /** Schemat ActivitySummary z openapi.yaml (lista aktywności). */
@@ -57,6 +59,7 @@ data class ActivitySummaryResponse(
     val durationSeconds: Int?,
     val avgPace: Double?,
     val stepCount: Int?,
+    @get:JsonProperty("isShared") val isShared: Boolean,
 )
 
 /** Schemat Activity z openapi.yaml (szczegóły z geometrią). */
@@ -70,6 +73,7 @@ data class ActivityResponse(
     val durationSeconds: Int?,
     val avgPace: Double?,
     val stepCount: Int?,
+    @get:JsonProperty("isShared") val isShared: Boolean,
     val geometry: GeoJsonLineString,
 )
 

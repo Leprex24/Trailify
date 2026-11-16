@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -41,6 +42,20 @@ class ActivityController(private val service: ActivityService) {
     @GetMapping("/activities/{activityId}/points")
     fun points(@PathVariable activityId: Long, authentication: Authentication): List<GpsPointResponse> =
         service.points(authentication.currentProfile().id, activityId)
+
+    /** Udostępnia aktywność (widoczna na profilu i na osi czasu obserwujących). */
+    @PutMapping("/activities/{activityId}/share")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun share(@PathVariable activityId: Long, authentication: Authentication) {
+        service.setShared(authentication.currentProfile().id, activityId, shared = true)
+    }
+
+    /** Cofa udostępnienie: aktywność znów widzi tylko właściciel. */
+    @DeleteMapping("/activities/{activityId}/share")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun unshare(@PathVariable activityId: Long, authentication: Authentication) {
+        service.setShared(authentication.currentProfile().id, activityId, shared = false)
+    }
 
     @DeleteMapping("/activities/{activityId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

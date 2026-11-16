@@ -62,12 +62,16 @@ class ApiActivityRepository(private val api: ApiClient) : ActivityRepository {
         api.call(HttpMethod.Delete, "/activities/$id")
     }
 
+    override suspend fun setShared(id: Long, shared: Boolean) {
+        api.call(if (shared) HttpMethod.Put else HttpMethod.Delete, "/activities/$id/share")
+    }
+
     override suspend fun getMine(page: Int, size: Int, from: Instant?, to: Instant?): Page<ActivitySummary> {
         // Instant.toString() daje czas w UTC z "Z" na końcu, więc nie trzeba nic kodować w adresie
         val range = listOfNotNull(from?.let { "&from=$it" }, to?.let { "&to=$it" }).joinToString("")
         val json = Json.parseToJsonElement(api.call(HttpMethod.Get, "/me/activities?page=$page&size=$size$range")).jsonObject
         return Page(
-            items = json.getValue("items").jsonArray.map { parseSummary(it.jsonObject) },
+            items = json.getValue("items").jsonArray.map { parseActivitySummary(it.jsonObject) },
             page = json.intOrNull("page") ?: page,
             size = json.intOrNull("size") ?: size,
             totalElements = json.longOrNull("totalElements") ?: 0L,
@@ -83,18 +87,20 @@ class ApiActivityRepository(private val api: ApiClient) : ActivityRepository {
             val pair = it.jsonArray
             LatLng(latitude = pair[1].jsonPrimitive.content.toDouble(), longitude = pair[0].jsonPrimitive.content.toDouble())
         }
-        return Activity(summary = parseSummary(json), geometry = geometry)
+        return Activity(summary = parseActivitySummary(json), geometry = geometry)
     }
-
-    private fun parseSummary(json: JsonObject) = ActivitySummary(
-        id = json.longOrNull("id") ?: 0L,
-        type = ActivityType.valueOf(json.getValue("type").jsonPrimitive.content),
-        routeId = json.longOrNull("routeId"),
-        startTime = Instant.parse(json.getValue("startTime").jsonPrimitive.content),
-        endTime = json.strOrNull("endTime")?.let(Instant::parse),
-        distance = json.doubleOrNull("distance"),
-        durationSeconds = json.intOrNull("durationSeconds"),
-        avgPace = json.doubleOrNull("avgPace"),
-        stepCount = json.intOrNull("stepCount"),
-    )
 }
+
+/** Schemat ActivitySummary (lista aktywności, także cudzych udostępnionych). */
+internal fun parseActivitySummary(json: JsonObject) = ActivitySummary(
+    id = json.longOrNull("id") ?: 0L,
+    type = ActivityType.valueOf(json.getValue("type").jsonPrimitive.content),
+    routeId = json.longOrNull("routeId"),
+    startTime = Instant.parse(json.getValue("startTime").jsonPrimitive.content),
+    endTime = json.strOrNull("endTime")?.let(Instant::parse),
+    distance = json.doubleOrNull("distance"),
+    durationSeconds = json.intOrNull("durationSeconds"),
+    avgPace = json.doubleOrNull("avgPace"),
+    stepCount = json.intOrNull("stepCount"),
+    isShared = json.boolOrNull("isShared") ?: false,
+)

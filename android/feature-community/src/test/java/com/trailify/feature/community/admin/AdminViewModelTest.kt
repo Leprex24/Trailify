@@ -9,7 +9,6 @@ import com.trailify.core.domain.model.ProfileStats
 import com.trailify.core.domain.model.Role
 import com.trailify.core.domain.model.UserStatus
 import com.trailify.core.ui.UiState
-import com.trailify.feature.community.poi.FakeAdmin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher

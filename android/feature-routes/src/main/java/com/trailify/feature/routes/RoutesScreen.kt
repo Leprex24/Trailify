@@ -79,6 +79,7 @@ import com.trailify.core.ui.UiState
 import com.trailify.core.ui.formatDistance
 import com.trailify.core.ui.formatDuration
 import com.trailify.core.ui.label
+import com.trailify.core.ui.swipeBetweenTabs
 import org.koin.compose.viewmodel.koinViewModel
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -115,7 +116,9 @@ fun RoutesScreen(
         onDispose { if (needsLocation) viewModel.setLocationWatching(false) }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(
+        modifier = modifier.fillMaxSize().swipeBetweenTabs(ui.tab.ordinal, RoutesTab.entries.size) { viewModel.selectTab(RoutesTab.entries[it]) },
+    ) {
         ScreenTitle("Trasy") {
             IconButton(onClick = onAddRoute) { Icon(Icons.Default.Add, contentDescription = "Zaplanuj nową trasę") }
         }

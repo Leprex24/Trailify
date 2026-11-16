@@ -2,6 +2,8 @@ package com.trailify.app.navigation
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -24,6 +26,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.trailify.core.domain.model.ActivityType
+import com.trailify.core.domain.model.LatLng
 import com.trailify.core.domain.repository.AuthRepository
 import com.trailify.feature.auth.ConsentGate
 import com.trailify.feature.auth.LoginScreen
@@ -31,6 +34,7 @@ import com.trailify.feature.auth.PrivacyPolicyScreen
 import com.trailify.feature.auth.RegisterScreen
 import com.trailify.feature.community.CommunityScreen
 import com.trailify.feature.community.admin.AdminScreen
+import com.trailify.feature.community.feed.UserSearchScreen
 import com.trailify.feature.community.poi.PoiFormScreen
 import com.trailify.feature.community.publish.PublishRouteScreen
 import com.trailify.feature.discover.DiscoverScreen
@@ -46,6 +50,9 @@ import com.trailify.feature.profile.UserListScreen
 import com.trailify.feature.routes.RoutesScreen
 import org.koin.compose.koinInject
 import androidx.compose.material3.MaterialTheme
+
+/** Czas zsuwania ekranu przy cofaniu. */
+private const val BACK_ANIMATION_MS = 220
 
 @Composable
 fun TrailifyNavHost() {
@@ -94,11 +101,15 @@ fun TrailifyNavHost() {
                 navController = navController,
                 startDestination = Routes.MAP,
                 modifier = Modifier.padding(innerPadding),
-                // Bez animacji przejść: domyślne zanikanie pokazywało mapę przez ekran profilu.
+                // Wejście bez animacji: domyślne zanikanie pokazywało mapę przez ekran profilu.
+                // Cofanie (przyciskiem i gestem) zsuwa bieżący ekran w prawo, bez zmniejszania i bez zanikania,
+                // a ekran pod spodem jest już na swoim miejscu.
                 enterTransition = { EnterTransition.None },
                 exitTransition = { ExitTransition.None },
                 popEnterTransition = { EnterTransition.None },
-                popExitTransition = { ExitTransition.None },
+                popExitTransition = { slideOutHorizontally(animationSpec = tween(BACK_ANIMATION_MS)) { it } },
+                predictivePopEnterTransition = { EnterTransition.None },
+                predictivePopExitTransition = { slideOutHorizontally(animationSpec = tween(BACK_ANIMATION_MS)) { it } },
             ) {
                 composable(Routes.DISCOVER) {
                     ScreenSurface { DiscoverScreen(onRouteClick = { navController.navigate(Routes.routeDetails(it)) }) }
@@ -118,6 +129,7 @@ fun TrailifyNavHost() {
                 composable(Routes.MAP) {
                     MapScreen(
                         onOpenSummary = { navController.navigate(Routes.ACTIVITY_SUMMARY) },
+                        onProposePoi = { lat, lng -> navController.navigate(Routes.proposePoiAt(lat, lng)) },
                         panelVisible = startPanelVisible,
                     )
                 }
@@ -158,11 +170,39 @@ fun TrailifyNavHost() {
                     }
                 }
                 composable(Routes.COMMUNITY) {
-                    ScreenSurface { CommunityScreen(onProposePoi = { navController.navigate(Routes.PROPOSE_POI) }) }
-                }
-                composable(Routes.PROPOSE_POI) {
                     ScreenSurface {
-                        PoiFormScreen(asAdmin = false, onDone = { navController.popBackStack() }, onBack = { navController.popBackStack() })
+                        CommunityScreen(
+                            onSearchUsers = { navController.navigate(Routes.USER_SEARCH) },
+                            onOpenUser = { navController.navigate(Routes.userProfile(it)) },
+                            onOpenRoute = { navController.navigate(Routes.routeDetails(it)) },
+                            onOpenActivity = { navController.navigate(Routes.otherActivityDetails(it)) },
+                        )
+                    }
+                }
+                composable(Routes.USER_SEARCH) {
+                    ScreenSurface {
+                        UserSearchScreen(
+                            onBack = { navController.popBackStack() },
+                            onOpenUser = { navController.navigate(Routes.userProfile(it)) },
+                        )
+                    }
+                }
+                composable(
+                    route = Routes.PROPOSE_POI_ROUTE,
+                    arguments = listOf(
+                        navArgument(Routes.POI_LAT_ARG) { type = NavType.StringType; nullable = true; defaultValue = null },
+                        navArgument(Routes.POI_LNG_ARG) { type = NavType.StringType; nullable = true; defaultValue = null },
+                    ),
+                ) { entry ->
+                    val lat = entry.arguments?.getString(Routes.POI_LAT_ARG)?.toDoubleOrNull()
+                    val lng = entry.arguments?.getString(Routes.POI_LNG_ARG)?.toDoubleOrNull()
+                    ScreenSurface {
+                        PoiFormScreen(
+                            asAdmin = false,
+                            initialPosition = if (lat != null && lng != null) LatLng(lat, lng) else null,
+                            onDone = { navController.popBackStack() },
+                            onBack = { navController.popBackStack() },
+                        )
                     }
                 }
                 composable(Routes.PROFILE) {
@@ -188,6 +228,7 @@ fun TrailifyNavHost() {
                             onOpenFollowers = { navController.navigate(Routes.userList(it, UserListKind.FOLLOWERS.route)) },
                             onOpenFollowing = { navController.navigate(Routes.userList(it, UserListKind.FOLLOWING.route)) },
                             onOpenRoute = { navController.navigate(Routes.routeDetails(it)) },
+                            onOpenActivity = { navController.navigate(Routes.otherActivityDetails(it)) },
                         )
                     }
                 }
@@ -209,11 +250,15 @@ fun TrailifyNavHost() {
                 }
                 composable(
                     route = Routes.ACTIVITY_DETAILS,
-                    arguments = listOf(navArgument(Routes.ACTIVITY_ID_ARG) { type = NavType.LongType }),
+                    arguments = listOf(
+                        navArgument(Routes.ACTIVITY_ID_ARG) { type = NavType.LongType },
+                        navArgument(Routes.ACTIVITY_OWN_ARG) { type = NavType.BoolType; defaultValue = true },
+                    ),
                 ) { entry ->
                     ScreenSurface {
                         ActivityDetailsScreen(
                             activityId = entry.arguments?.getLong(Routes.ACTIVITY_ID_ARG) ?: 0L,
+                            isOwn = entry.arguments?.getBoolean(Routes.ACTIVITY_OWN_ARG) ?: true,
                             onPublish = { navController.navigate(Routes.publishRoute(it.id, it.type.name)) },
                             onBack = { navController.popBackStack() },
                         )

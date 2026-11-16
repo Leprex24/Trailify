@@ -28,6 +28,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.trailify.core.ui.BackButton
 import com.trailify.core.ui.PasswordField
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -47,7 +48,7 @@ fun RegisterScreen(
             .verticalScroll(rememberScrollState())
             .padding(24.dp),
     ) {
-        TextButton(onClick = onBack) { Text("← Wróć") }
+        BackButton(onClick = onBack)
         Spacer(Modifier.height(8.dp))
         Text("Załóż konto", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(24.dp))

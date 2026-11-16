@@ -95,6 +95,25 @@ class PoiLogicTest {
             .extracting("code").isEqualTo("VALIDATION_ERROR")
     }
 
+    @Test
+    fun `edycja moze zmienic kategorie`() {
+        assertThat(parsePoiUpdate(mapOf("category" to "VIEWPOINT")).category).isEqualTo("VIEWPOINT")
+    }
+
+    @Test
+    fun `nieznana kategoria jest odrzucona`() {
+        assertThatThrownBy { parsePoiUpdate(mapOf("category" to "ZAMEK")) }
+            .isInstanceOf(ApiException::class.java)
+            .extracting("code").isEqualTo("VALIDATION_ERROR")
+    }
+
+    @Test
+    fun `parsowanie kategorii rozpoznaje tylko znane nazwy`() {
+        assertThat(parsePoiCategory("NATURE")).isEqualTo(PoiCategory.NATURE)
+        assertThat(parsePoiCategory("nature")).isNull()
+        assertThat(parsePoiCategory(null)).isNull()
+    }
+
     // --- /admin/users ---
 
     private fun profile(id: UUID, role: String) =

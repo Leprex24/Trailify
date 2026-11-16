@@ -1,5 +1,6 @@
 package com.trailify.core.data.api
 
+import com.trailify.core.domain.model.ActivitySummary
 import com.trailify.core.domain.model.Page
 import com.trailify.core.domain.model.PoiCollectionEntry
 import com.trailify.core.domain.model.PublicProfile
@@ -13,6 +14,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.net.URLEncoder
 
 /** Cudze profile i obserwowanie: /users/{id}, /follow, /followers, /following, /routes, /poi-collection. */
 class ApiSocialRepository(private val api: ApiClient) : SocialRepository {
@@ -40,6 +42,18 @@ class ApiSocialRepository(private val api: ApiClient) : SocialRepository {
     override suspend fun poiCollection(userId: String): List<PoiCollectionEntry> =
         Json.parseToJsonElement(api.call(HttpMethod.Get, "/users/$userId/poi-collection")).jsonArray
             .map { parseCollectionEntry(it.jsonObject) }
+
+    override suspend fun activities(userId: String, page: Int, size: Int): Page<ActivitySummary> =
+        parsePageOf(api.call(HttpMethod.Get, "/users/$userId/activities?page=$page&size=$size"), ::parseActivitySummary)
+
+    override suspend fun search(query: String, page: Int, size: Int): Page<UserSummary> {
+        val q = URLEncoder.encode(query.trim(), "UTF-8")
+        return parsePageOf(api.call(HttpMethod.Get, "/users?query=$q&page=$page&size=$size"), ::parseUserSummary)
+    }
+
+    override suspend fun removeFollower(userId: String) {
+        api.call(HttpMethod.Delete, "/me/followers/$userId")
+    }
 }
 
 /** Schemat PublicProfile; `stats` jest null dla cudzego profilu prywatnego. */

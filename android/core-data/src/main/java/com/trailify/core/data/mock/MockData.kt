@@ -4,6 +4,7 @@ import com.trailify.core.domain.model.ActivityType
 import com.trailify.core.domain.model.LatLng
 import com.trailify.core.domain.model.Photo
 import com.trailify.core.domain.model.Poi
+import com.trailify.core.domain.model.PoiCategory
 import com.trailify.core.domain.model.Role
 import com.trailify.core.domain.model.Route
 import com.trailify.core.domain.model.RouteSummary
@@ -118,8 +119,8 @@ object MockData {
     )
 
     val pois: List<Poi> = listOf(
-        Poi(1, "Brama Krakowska", "Symbol Lublina, brama miejska z XIV wieku.", 51.2477, 22.5675, null),
-        Poi(2, "Zamek Lubelski", "Średniowieczny zamek z kaplicą Trójcy Świętej.", 51.2492, 22.5815, null),
-        Poi(3, "Wieża Trynitarska", "Punkt widokowy na Stare Miasto.", 51.2471, 22.5658, null),
+        Poi(1, "Brama Krakowska", "Symbol Lublina, brama miejska z XIV wieku.", 51.2477, 22.5675, null, PoiCategory.HISTORIC),
+        Poi(2, "Zamek Lubelski", "Średniowieczny zamek z kaplicą Trójcy Świętej.", 51.2492, 22.5815, null, PoiCategory.CULTURE),
+        Poi(3, "Wieża Trynitarska", "Punkt widokowy na Stare Miasto.", 51.2471, 22.5658, null, PoiCategory.VIEWPOINT),
     )
 }

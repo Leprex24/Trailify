@@ -4,6 +4,7 @@ import com.trailify.core.domain.model.BoundingBox
 import com.trailify.core.domain.model.LatLng
 import com.trailify.core.domain.model.Poi
 import com.trailify.core.domain.model.PoiAdmin
+import com.trailify.core.domain.model.PoiCategory
 import com.trailify.core.domain.model.PoiCollectionEntry
 import com.trailify.core.domain.model.PoiDraft
 import com.trailify.core.domain.model.PoiStatus
@@ -50,6 +51,7 @@ internal fun poiDraftJson(draft: PoiDraft): JsonObject = buildJsonObject {
     put("description", draft.description)
     put("latitude", draft.latitude)
     put("longitude", draft.longitude)
+    put("category", draft.category.name)
     draft.photo?.let { photo ->
         putJsonObject("photo") {
             put("storageKey", photo.storageKey)
@@ -65,7 +67,11 @@ internal fun parsePoi(json: JsonObject) = Poi(
     latitude = json.getValue("latitude").jsonPrimitive.content.toDouble(),
     longitude = json.getValue("longitude").jsonPrimitive.content.toDouble(),
     photoUrl = json.strOrNull("photoUrl"),
+    category = parsePoiCategory(json.strOrNull("category")),
 )
+
+/** Nieznana albo brakująca kategoria (np. starszy serwer) to OTHER. */
+internal fun parsePoiCategory(name: String?): PoiCategory = PoiCategory.entries.firstOrNull { it.name == name } ?: PoiCategory.OTHER
 
 /** Schemat PoiAdmin: pola Poi na tym samym poziomie co status i dane moderacji. */
 internal fun parsePoiAdmin(json: JsonObject) = PoiAdmin(

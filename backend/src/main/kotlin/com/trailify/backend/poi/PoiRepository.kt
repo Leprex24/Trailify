@@ -44,8 +44,8 @@ class PoiRepository(private val jdbc: JdbcClient) {
     fun insert(submittedBy: UUID, request: PoiCreateRequest, status: String): Long =
         jdbc.sql(
             """
-            insert into point_of_interest (submitted_by, name, description, latitude, longitude, status)
-            values (:userId, :name, :description, :lat, :lng, :status)
+            insert into point_of_interest (submitted_by, name, description, latitude, longitude, status, category)
+            values (:userId, :name, :description, :lat, :lng, :status, :category)
             returning id
             """.trimIndent(),
         )
@@ -55,6 +55,7 @@ class PoiRepository(private val jdbc: JdbcClient) {
             .param("lat", request.latitude!!)
             .param("lng", request.longitude!!)
             .param("status", status)
+            .param("category", (request.category ?: PoiCategory.OTHER).name)
             .query(RowMapper<Long> { rs, _ -> rs.getLong(1) })
             .single()
 
@@ -75,7 +76,8 @@ class PoiRepository(private val jdbc: JdbcClient) {
                 name = coalesce(:name, name),
                 description = coalesce(:description, description),
                 latitude = coalesce(:lat, latitude),
-                longitude = coalesce(:lng, longitude)
+                longitude = coalesce(:lng, longitude),
+                category = coalesce(:category, category)
             where id = :id
             """.trimIndent(),
         )
@@ -84,6 +86,7 @@ class PoiRepository(private val jdbc: JdbcClient) {
             .param("description", update.description, Types.VARCHAR)
             .param("lat", update.latitude, Types.DOUBLE)
             .param("lng", update.longitude, Types.DOUBLE)
+            .param("category", update.category, Types.VARCHAR)
             .update()
     }
 
@@ -135,7 +138,7 @@ class PoiRepository(private val jdbc: JdbcClient) {
     fun collectionOf(userId: UUID): List<PoiCollectionEntryResponse> =
         jdbc.sql(
             """
-            select p.id, p.name, p.description, p.latitude, p.longitude,
+            select p.id, p.name, p.description, p.latitude, p.longitude, p.category,
                    (select ph.url from photo ph where ph.poi_id = p.id) as photo_url,
                    c.collected_at
             from poi_collection c
@@ -157,13 +160,13 @@ class PoiRepository(private val jdbc: JdbcClient) {
         const val MAX_POIS_IN_BOX = 500
 
         val SELECT_POI = """
-            select p.id, p.name, p.description, p.latitude, p.longitude,
+            select p.id, p.name, p.description, p.latitude, p.longitude, p.category,
                    (select ph.url from photo ph where ph.poi_id = p.id) as photo_url
             from point_of_interest p
         """.trimIndent()
 
         val SELECT_POI_ADMIN = """
-            select p.id, p.name, p.description, p.latitude, p.longitude, p.status, p.rejection_reason, p.created_at,
+            select p.id, p.name, p.description, p.latitude, p.longitude, p.category, p.status, p.rejection_reason, p.created_at,
                    (select ph.url from photo ph where ph.poi_id = p.id) as photo_url,
                    pr.id as submitter_id, pr.display_name as submitter_name, pr.avatar_url as submitter_avatar
             from point_of_interest p
@@ -192,6 +195,7 @@ class PoiRepository(private val jdbc: JdbcClient) {
             latitude = getDouble("latitude"),
             longitude = getDouble("longitude"),
             photoUrl = getString("photo_url"),
+            category = getString("category"),
         )
     }
 }

@@ -35,7 +35,6 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,6 +49,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trailify.core.domain.model.ActivityType
+import com.trailify.core.ui.BackButton
 import com.trailify.core.ui.PHOTO_TILE_SIZE
 import com.trailify.core.ui.PhotoTile
 import com.trailify.core.ui.label
@@ -80,7 +80,7 @@ fun PublishRouteScreen(
             .verticalScroll(rememberScrollState())
             .padding(24.dp),
     ) {
-        TextButton(onClick = onBack) { Text("← Wróć") }
+        BackButton(onClick = onBack)
         Text("Opublikuj trasę", style = MaterialTheme.typography.headlineMedium)
         Text(
             "Trasa powstanie z zapisanej aktywności. Inni użytkownicy będą mogli ją przejść i ocenić.",

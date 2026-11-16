@@ -1,5 +1,6 @@
 package com.trailify.feature.profile
 
+import com.trailify.core.domain.model.ActivitySummary
 import com.trailify.core.domain.model.ActivityType
 import com.trailify.core.domain.model.AppException
 import com.trailify.core.domain.model.Page
@@ -18,10 +19,12 @@ class FakeSocialRepository(
     var users: List<UserSummary> = emptyList(),
     var routes: List<RouteSummary> = emptyList(),
     var failFollow: Boolean = false,
+    var activities: List<ActivitySummary> = emptyList(),
 ) : SocialRepository {
     val followCalls = mutableListOf<String>()
     val unfollowCalls = mutableListOf<String>()
     val requestedPages = mutableListOf<Int>()
+    val removedFollowers = mutableListOf<String>()
 
     override suspend fun getProfile(userId: String) = profile
 
@@ -47,6 +50,18 @@ class FakeSocialRepository(
     override suspend fun poiCollection(userId: String): List<PoiCollectionEntry> {
         requirePublic()
         return listOf(PoiCollectionEntry(Poi(1, "Brama Krakowska", null, 51.2, 22.5, null), Instant.EPOCH))
+    }
+
+    override suspend fun activities(userId: String, page: Int, size: Int): Page<ActivitySummary> {
+        requirePublic()
+        return Page(activities, 0, size, activities.size.toLong(), 1)
+    }
+
+    override suspend fun search(query: String, page: Int, size: Int) = userPage(page, size)
+
+    override suspend fun removeFollower(userId: String) {
+        if (failFollow) throw AppException("NETWORK_ERROR", "offline")
+        removedFollowers += userId
     }
 
     private fun userPage(page: Int, size: Int): Page<UserSummary> {

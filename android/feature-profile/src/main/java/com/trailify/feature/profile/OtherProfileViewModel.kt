@@ -3,6 +3,7 @@ package com.trailify.feature.profile
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trailify.core.domain.model.ActivitySummary
 import com.trailify.core.domain.model.PoiCollectionEntry
 import com.trailify.core.domain.model.PublicProfile
 import com.trailify.core.domain.model.RouteSummary
@@ -22,6 +23,8 @@ data class OtherProfileUiState(
     /** Publiczne trasy użytkownika. Dla profilu prywatnego nie są pobierane. */
     val routes: UiState<List<RouteSummary>> = UiState.Loading,
     val collection: UiState<List<PoiCollectionEntry>> = UiState.Loading,
+    /** Aktywności udostępnione przez tę osobę. */
+    val activities: UiState<List<ActivitySummary>> = UiState.Loading,
     val followBusy: Boolean = false,
     val followError: String? = null,
 )
@@ -39,7 +42,7 @@ fun PublicProfile.withFollowing(following: Boolean): PublicProfile {
     )
 }
 
-/** Cudzy profil: dane, obserwowanie, publiczne trasy i zebrane punkty. */
+/** Cudzy profil: dane, obserwowanie, publiczne trasy, udostępnione aktywności i zebrane punkty. */
 class OtherProfileViewModel(
     private val userId: String,
     private val social: SocialRepository,
@@ -58,7 +61,10 @@ class OtherProfileViewModel(
             if (details) {
                 val routes = async { result { social.routes(userId, page = 0, size = ROUTES_SIZE).items } }
                 val collection = async { result { social.poiCollection(userId) } }
-                _state.update { it.copy(routes = routes.await(), collection = collection.await()) }
+                val activities = async { result { social.activities(userId, page = 0, size = ROUTES_SIZE).items } }
+                _state.update {
+                    it.copy(routes = routes.await(), collection = collection.await(), activities = activities.await())
+                }
             }
         }
     }
@@ -94,7 +100,7 @@ class OtherProfileViewModel(
     internal companion object {
         const val TAG = "OtherProfile"
 
-        /** Tyle ostatnich tras pokazujemy na cudzym profilu. */
+        /** Tyle ostatnich tras i aktywności pokazujemy na cudzym profilu. */
         const val ROUTES_SIZE = 50
     }
 }

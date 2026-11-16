@@ -1,6 +1,11 @@
 package com.trailify.core.ui
 
 import com.trailify.core.domain.model.ActivityType
+import com.trailify.core.domain.model.PoiCategory
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val PL = Locale.forLanguageTag("pl-PL")
@@ -46,3 +51,32 @@ fun formatPace(minPerKm: Double?): String {
 /** 5.0 m/s -> "18,0 km/h", null -> "-" */
 fun formatSpeed(mps: Double?): String =
     if (mps == null) "-" else String.format(PL, "%.1f km/h", mps * 3.6)
+
+/** Nazwa kategorii ciekawego punktu na jego karcie. */
+fun PoiCategory.label(): String = when (this) {
+    PoiCategory.VIEWPOINT -> "Punkt widokowy"
+    PoiCategory.NATURE -> "Przyroda"
+    PoiCategory.HISTORIC -> "Zabytek"
+    PoiCategory.CULTURE -> "Kultura"
+    PoiCategory.RECREATION -> "Rekreacja"
+    PoiCategory.OTHER -> "Inne"
+}
+
+private val SHORT_DATE = DateTimeFormatter.ofPattern("d.MM.yyyy")
+
+/**
+ * Jak dawno temu coś się stało: "przed chwilą", "5 min temu", "3 godz. temu", "wczoraj", "4 dni temu",
+ * a po tygodniu data. Czas z przyszłości (rozjechany zegar) to "przed chwilą".
+ */
+fun formatTimeAgo(now: Instant, then: Instant, zone: ZoneId = ZoneId.systemDefault()): String {
+    val minutes = Duration.between(then, now).toMinutes()
+    val hours = minutes / 60
+    return when {
+        minutes < 1 -> "przed chwilą"
+        minutes < 60 -> "$minutes min temu"
+        hours < 24 -> "$hours godz. temu"
+        hours < 48 -> "wczoraj"
+        hours < 24 * 7 -> "${hours / 24} dni temu"
+        else -> SHORT_DATE.format(then.atZone(zone))
+    }
+}

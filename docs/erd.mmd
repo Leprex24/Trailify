@@ -6,6 +6,15 @@ erDiagram
     profile ||--o{ follow : "obserwuje"
     profile ||--o{ follow : "jest obserwowany"
     profile |o--o{ point_of_interest : "zgłasza"
+    profile ||--o{ feed_event : "jest autorem wpisu"
+    profile ||--o{ feed_like : "lubi"
+    profile ||--o{ feed_comment : "komentuje"
+    feed_event ||--o{ feed_like : "ma polubienia"
+    feed_event ||--o{ feed_comment : "ma komentarze"
+    route |o--o| feed_event : "publikacja"
+    activity |o--o| feed_event : "udostępnienie"
+    review |o--o| feed_event : "ocena"
+    poi_collection |o--o| feed_event : "zebranie"
     route ||--o{ review : "ma"
     route |o--o{ activity : "przebyta w"
     activity ||--o{ gps_point : "składa się z"
@@ -51,6 +60,7 @@ erDiagram
         integer duration_seconds
         double avg_pace "min/km"
         integer step_count
+        boolean is_shared "udostępniona; domyślnie prywatna"
         geometry geometry "LineString 4326"
         timestamptz created_at
     }
@@ -89,6 +99,7 @@ erDiagram
         double latitude
         double longitude
         varchar status "PENDING APPROVED REJECTED"
+        varchar category "VIEWPOINT NATURE HISTORIC CULTURE RECREATION OTHER"
         text rejection_reason
         timestamptz created_at
         geometry location "wyliczane z lat i lon"
@@ -102,5 +113,28 @@ erDiagram
     follow {
         uuid follower_id PK,FK "kto obserwuje"
         uuid followee_id PK,FK "kogo obserwuje"
+        timestamptz created_at
+    }
+    feed_event {
+        bigint id PK
+        uuid user_id FK "autor wpisu"
+        varchar type "ROUTE_PUBLISHED ACTIVITY REVIEW POI_COLLECTED"
+        bigint route_id FK "dokładnie jedno z czterech"
+        bigint activity_id FK "dokładnie jedno z czterech"
+        bigint review_id FK "dokładnie jedno z czterech"
+        bigint collection_id FK "dokładnie jedno z czterech"
+        timestamptz created_at
+    }
+    feed_like {
+        bigint event_id PK,FK
+        uuid user_id PK,FK
+        timestamptz created_at
+    }
+    feed_comment {
+        bigint id PK
+        bigint event_id FK
+        uuid user_id FK
+        uuid reply_to_user_id FK "oznaczona osoba"
+        varchar body
         timestamptz created_at
     }

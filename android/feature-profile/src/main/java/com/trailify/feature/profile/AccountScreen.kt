@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trailify.core.domain.repository.ThemeMode
+import com.trailify.core.ui.BackButton
 import com.trailify.core.ui.PasswordField
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -63,7 +64,7 @@ fun AccountScreen(
             .verticalScroll(rememberScrollState())
             .padding(24.dp),
     ) {
-        TextButton(onClick = onBack) { Text("← Wróć") }
+        BackButton(onClick = onBack)
         Text("Ustawienia", style = MaterialTheme.typography.headlineMedium)
         Text(ui.email, style = MaterialTheme.typography.bodyMedium)
 

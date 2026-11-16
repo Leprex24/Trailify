@@ -21,6 +21,8 @@ data class PoiCreateRequest(
     @field:NotNull @field:DecimalMin("-90") @field:DecimalMax("90") val latitude: Double?,
     @field:NotNull @field:DecimalMin("-180") @field:DecimalMax("180") val longitude: Double?,
     @field:Valid val photo: PhotoInputRequest?,
+    /** Brak kategorii to OTHER. */
+    val category: PoiCategory? = null,
 )
 
 /** Schemat CollectRequest: aktualna pozycja użytkownika. */
@@ -40,6 +42,7 @@ data class PoiResponse(
     val latitude: Double,
     val longitude: Double,
     val photoUrl: String?,
+    val category: String,
 )
 
 /** Schemat PoiAdmin: Poi plus dane moderacji. */

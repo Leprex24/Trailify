@@ -11,11 +11,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
@@ -25,6 +26,7 @@ import androidx.lifecycle.viewModelScope
 import com.trailify.core.domain.model.Activity
 import com.trailify.core.domain.model.ActivitySummary
 import com.trailify.core.domain.repository.ActivityRepository
+import com.trailify.core.ui.BackButton
 import com.trailify.core.ui.ErrorBox
 import com.trailify.core.ui.LinePreviewMap
 import com.trailify.core.ui.LoadingBox
@@ -33,13 +35,13 @@ import com.trailify.core.ui.formatDistance
 import com.trailify.core.ui.formatDuration
 import com.trailify.core.ui.label
 import com.trailify.core.ui.toUserMessage
+import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
-import java.util.Locale
 
 /** Jedna aktywność z historii (W25): przebieg na mapie i statystyki. */
 class ActivityDetailsViewModel(private val activities: ActivityRepository) : ViewModel() {
@@ -47,11 +49,21 @@ class ActivityDetailsViewModel(private val activities: ActivityRepository) : Vie
     private val _state = MutableStateFlow<UiState<Activity>>(UiState.Loading)
     val state: StateFlow<UiState<Activity>> = _state.asStateFlow()
 
+    private val _shared = MutableStateFlow(false)
+
+    /** Czy aktywność jest udostępniona obserwującym (domyślnie prywatna). */
+    val shared: StateFlow<Boolean> = _shared.asStateFlow()
+
+    private val _shareError = MutableStateFlow<String?>(null)
+    val shareError: StateFlow<String?> = _shareError.asStateFlow()
+
+    private var sharing = false
+
     fun load(activityId: Long) {
         viewModelScope.launch {
             _state.value = UiState.Loading
             _state.value = try {
-                UiState.Success(activities.get(activityId))
+                activities.get(activityId).also { _shared.value = it.summary.isShared }.let { UiState.Success(it) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -59,12 +71,37 @@ class ActivityDetailsViewModel(private val activities: ActivityRepository) : Vie
             }
         }
     }
+
+    /** Przełącznik udostępniania: zmiana widoczna od razu, a przy błędzie sieci wraca do poprzedniej wartości. */
+    fun setShared(activityId: Long, shared: Boolean) {
+        if (sharing || _shared.value == shared) return
+        sharing = true
+        _shareError.value = null
+        _shared.value = shared
+        viewModelScope.launch {
+            try {
+                activities.setShared(activityId, shared)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _shared.value = !shared
+                _shareError.value = e.toUserMessage()
+            } finally {
+                sharing = false
+            }
+        }
+    }
+
+    fun dismissShareError() {
+        _shareError.value = null
+    }
 }
 
 /** Szczegóły aktywności. Gdy aktywność nie jest jeszcze trasą, można ją od razu opublikować. */
 @Composable
 fun ActivityDetailsScreen(
     activityId: Long,
+    isOwn: Boolean,
     onPublish: (ActivitySummary) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -72,6 +109,8 @@ fun ActivityDetailsScreen(
 ) {
     LaunchedEffect(activityId) { viewModel.load(activityId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val shared by viewModel.shared.collectAsStateWithLifecycle()
+    val shareError by viewModel.shareError.collectAsStateWithLifecycle()
 
     when (val s = state) {
         is UiState.Loading -> LoadingBox(modifier)
@@ -79,7 +118,7 @@ fun ActivityDetailsScreen(
         is UiState.Success -> {
             val activity = s.data.summary
             Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
-                TextButton(onClick = onBack) { Text("← Wróć") }
+                BackButton(onClick = onBack)
                 Text(activity.type.label(), style = MaterialTheme.typography.headlineSmall)
                 Text(PROFILE_DATE_FORMAT.format(activity.startTime), style = MaterialTheme.typography.bodyMedium)
                 if (s.data.geometry.size >= 2) {
@@ -94,7 +133,23 @@ fun ActivityDetailsScreen(
                     Stat("Tempo", activity.avgPace?.let { formatPace(it) } ?: "-")
                     activity.stepCount?.let { Stat("Kroki", "$it") }
                 }
-                if (activity.routeId == null) {
+                if (isOwn) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Udostępnij aktywność", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                if (shared) "Widzą ją osoby, które Cię obserwują." else "Tylko Ty ją widzisz.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(checked = shared, onCheckedChange = { viewModel.setShared(activityId, it) })
+                    }
+                    shareError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                }
+                if (!isOwn) {
+                    // cudza aktywność: tylko podgląd
+                } else if (activity.routeId == null) {
                     Button(onClick = { onPublish(activity) }, modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) {
                         Text("Opublikuj jako trasę")
                     }

@@ -3,6 +3,7 @@ package com.trailify.backend.activity
 import com.trailify.backend.common.PageRequest
 import com.trailify.backend.common.PageResponse
 import com.trailify.backend.common.pageOf
+import com.trailify.backend.feed.FeedRepository
 import com.trailify.backend.web.ApiException
 import com.trailify.backend.web.ApiFieldError
 import org.springframework.dao.DuplicateKeyException
@@ -17,6 +18,7 @@ data class CreateActivityResult(val activity: ActivityResponse, val created: Boo
 @Service
 class ActivityService(
     private val repository: ActivityRepository,
+    private val feed: FeedRepository,
     private val transactions: TransactionTemplate,
 ) {
 
@@ -28,7 +30,12 @@ class ActivityService(
 
         val id = try {
             // aktywność i wszystkie jej punkty zapisują się razem albo wcale
-            transactions.execute { repository.insert(userId, request) }!!
+            transactions.execute {
+                val activityId = repository.insert(userId, request)
+                // udostępniona od razu aktywność trafia na oś czasu obserwujących
+                if (request.isShared == true) feed.addActivity(activityId)
+                activityId
+            }!!
         } catch (e: DuplicateKeyException) {
             // dwa równoległe żądania z tym samym clientId: wygrało drugie, zwracamy jego wynik
             val existing = repository.findByClientId(userId, request.clientId)
@@ -38,12 +45,21 @@ class ActivityService(
         return CreateActivityResult(repository.findOwned(userId, id)!!, created = true)
     }
 
-    fun get(userId: UUID, activityId: Long): ActivityResponse =
-        repository.findOwned(userId, activityId) ?: notFound()
+    /** Własna aktywność albo cudza udostępniona (przez osobę z nieprywatnym profilem). Inne to 404. */
+    fun get(viewerId: UUID, activityId: Long): ActivityResponse =
+        repository.findViewable(viewerId, activityId) ?: notFound()
 
-    fun points(userId: UUID, activityId: Long): List<GpsPointResponse> {
-        repository.findOwned(userId, activityId) ?: notFound()
+    fun points(viewerId: UUID, activityId: Long): List<GpsPointResponse> {
+        repository.findViewable(viewerId, activityId) ?: notFound()
         return repository.listPoints(activityId)
+    }
+
+    /** Udostępnia (true) albo ukrywa (false) własną aktywność. Ukrycie chowa ją też z osi czasu (widoczność sprawdza zapytanie). */
+    fun setShared(userId: UUID, activityId: Long, shared: Boolean) {
+        transactions.executeWithoutResult {
+            if (!repository.setShared(userId, activityId, shared)) notFound()
+            if (shared) feed.addActivity(activityId)
+        }
     }
 
     fun delete(userId: UUID, activityId: Long) {

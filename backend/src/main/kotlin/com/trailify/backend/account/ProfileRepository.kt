@@ -1,5 +1,7 @@
 package com.trailify.backend.account
 
+import com.trailify.backend.common.PageRequest
+import com.trailify.backend.route.UserSummaryResponse
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
@@ -87,6 +89,44 @@ class ProfileRepository(private val jdbc: JdbcClient) : ProfileLookup {
             .param("id", userId)
             .update()
     }
+
+    /** Liczba aktywnych kont, których nazwa zawiera [pattern] (wzorzec LIKE z ucieczką `\`), bez [excludeId]. */
+    fun countByName(pattern: String, excludeId: UUID): Long =
+        jdbc.sql(
+            """
+            select count(*) from profile
+            where status = 'ACTIVE' and id <> :me and display_name ilike :pattern escape '\'
+            """.trimIndent(),
+        )
+            .param("me", excludeId)
+            .param("pattern", pattern)
+            .query(RowMapper<Long> { rs, _ -> rs.getLong(1) })
+            .single()
+
+    /**
+     * Aktywne konta po nazwie: najpierw nazwy zaczynające się od frazy ([prefixPattern]), potem pozostałe alfabetycznie.
+     * Adresów e-mail nie przeszukujemy ani nie zwracamy.
+     */
+    fun searchByName(pattern: String, prefixPattern: String, excludeId: UUID, page: PageRequest): List<UserSummaryResponse> =
+        jdbc.sql(
+            """
+            select id, display_name, avatar_url from profile
+            where status = 'ACTIVE' and id <> :me and display_name ilike :pattern escape '\'
+            order by (display_name ilike :prefix escape '\') desc, lower(display_name), id
+            limit :limit offset :offset
+            """.trimIndent(),
+        )
+            .param("me", excludeId)
+            .param("pattern", pattern)
+            .param("prefix", prefixPattern)
+            .param("limit", page.size)
+            .param("offset", page.offset)
+            .query(
+                RowMapper<UserSummaryResponse> { rs, _ ->
+                    UserSummaryResponse(rs.getString("id"), rs.getString("display_name"), rs.getString("avatar_url"))
+                },
+            )
+            .list()
 
     fun stats(userId: UUID): ProfileStatsRecord =
         jdbc.sql(

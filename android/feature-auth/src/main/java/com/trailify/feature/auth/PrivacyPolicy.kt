@@ -9,11 +9,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.trailify.core.domain.repository.CONSENT_VERSION
+import com.trailify.core.ui.BackButton
 
 // SZKIC do uzupełnienia razem z promotorem. Wpiszcie prawdziwe dane administratora.
 // Po zmianie treści podbij CONSENT_VERSION (core-domain), a użytkownicy zaakceptują ją ponownie.
@@ -54,7 +54,7 @@ fun PrivacyPolicyScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             .verticalScroll(rememberScrollState())
             .padding(24.dp),
     ) {
-        TextButton(onClick = onBack) { Text("← Wróć") }
+        BackButton(onClick = onBack)
         Spacer(Modifier.height(8.dp))
         Text("Polityka prywatności", style = MaterialTheme.typography.headlineMedium)
         PrivacyPolicyText()

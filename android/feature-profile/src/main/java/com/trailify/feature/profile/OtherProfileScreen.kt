@@ -25,9 +25,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.trailify.core.domain.model.ActivitySummary
 import com.trailify.core.domain.model.PoiCollectionEntry
 import com.trailify.core.domain.model.PublicProfile
 import com.trailify.core.domain.model.RouteSummary
+import com.trailify.core.ui.BackButton
 import com.trailify.core.ui.ErrorBox
 import com.trailify.core.ui.LoadingBox
 import com.trailify.core.ui.ProfileHeader
@@ -35,18 +37,20 @@ import com.trailify.core.ui.ProfileStat
 import com.trailify.core.ui.UiState
 import com.trailify.core.ui.formatDistance
 import com.trailify.core.ui.label
+import com.trailify.core.ui.swipeBetweenTabs
+import java.util.Locale
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-import java.util.Locale
 
 private enum class OtherProfileTab(val title: String) {
     ROUTES("Trasy"),
+    ACTIVITIES("Aktywności"),
     POINTS("Punkty"),
 }
 
 /**
  * Cudzy profil: nagłówek z liczbami (obserwujących i obserwowanych da się otworzyć), przycisk Obserwuj
- * oraz zakładki Trasy i Punkty. Profil prywatny pokazuje tylko nazwę i zdjęcia.
+ * oraz zakładki Trasy, Aktywności i Punkty. Profil prywatny pokazuje tylko nazwę i zdjęcia.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -56,6 +60,7 @@ fun OtherProfileScreen(
     onOpenFollowers: (userId: String) -> Unit,
     onOpenFollowing: (userId: String) -> Unit,
     onOpenRoute: (Long) -> Unit,
+    onOpenActivity: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: OtherProfileViewModel = koinViewModel(key = "user-$userId") { parametersOf(userId) },
 ) {
@@ -67,12 +72,15 @@ fun OtherProfileScreen(
     when (val profile = state.profile) {
         is UiState.Loading -> LoadingBox(modifier)
         is UiState.Error -> Column(modifier) {
-            TextButton(onClick = onBack, modifier = Modifier.padding(8.dp)) { Text("← Wstecz") }
+            BackButton(onClick = onBack)
             ErrorBox(profile.message, onRetry = viewModel::load)
         }
-        is UiState.Success -> LazyColumn(modifier = modifier, contentPadding = PaddingValues(bottom = 24.dp)) {
+        is UiState.Success -> LazyColumn(
+            modifier = modifier.swipeBetweenTabs(tabIndex, OtherProfileTab.entries.size) { tabIndex = it },
+            contentPadding = PaddingValues(bottom = 24.dp),
+        ) {
             val user = profile.data
-            item { TextButton(onClick = onBack, modifier = Modifier.padding(8.dp)) { Text("← Wstecz") } }
+            item { BackButton(onClick = onBack) }
             item { OtherProfileHeader(user, onOpenFollowers, onOpenFollowing) }
             if (user.canToggleFollow()) {
                 item {
@@ -94,6 +102,7 @@ fun OtherProfileScreen(
                 }
                 when (OtherProfileTab.entries[tabIndex]) {
                     OtherProfileTab.ROUTES -> routesTab(state.routes, onOpenRoute, onRetry = viewModel::load)
+                    OtherProfileTab.ACTIVITIES -> activitiesTab(state.activities, onOpenActivity, onRetry = viewModel::load)
                     OtherProfileTab.POINTS -> pointsOfUser(state.collection, onRetry = viewModel::load)
                 }
             }
@@ -150,6 +159,25 @@ private fun LazyListScope.routesTab(
         } else {
             items(routes.data, key = { it.id }) { route ->
                 UserRouteRow(route, onClick = { onOpenRoute(route.id) })
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+            }
+        }
+    }
+}
+
+private fun LazyListScope.activitiesTab(
+    activities: UiState<List<ActivitySummary>>,
+    onOpenActivity: (Long) -> Unit,
+    onRetry: () -> Unit,
+) {
+    when (activities) {
+        is UiState.Loading -> item { Hint("Wczytywanie...") }
+        is UiState.Error -> item { RetryLine(activities.message, onRetry) }
+        is UiState.Success -> if (activities.data.isEmpty()) {
+            item { Hint("Ta osoba nie udostępniła jeszcze żadnej aktywności.") }
+        } else {
+            items(activities.data, key = { it.id }) { activity ->
+                ActivityRow(activity, onClick = { onOpenActivity(activity.id) })
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
             }
         }

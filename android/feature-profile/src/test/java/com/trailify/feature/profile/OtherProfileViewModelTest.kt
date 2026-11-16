@@ -1,5 +1,7 @@
 package com.trailify.feature.profile
 
+import com.trailify.core.domain.model.ActivitySummary
+import com.trailify.core.domain.model.ActivityType
 import com.trailify.core.ui.UiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -14,6 +16,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OtherProfileViewModelTest {
@@ -105,5 +108,20 @@ class OtherProfileViewModelTest {
     fun brakZmianyObserwowaniaNiczegoNieZmienia() {
         val profile = publicProfile(isFollowing = true)
         assertEquals(profile, profile.withFollowing(true))
+    }
+
+    @Test
+    fun wczytujeUdostepnioneAktywnosci() {
+        val shared = ActivitySummary(5, ActivityType.CYCLING, null, Instant.EPOCH, null, 8000.0, 1800, 3.7, null, isShared = true)
+        val vm = OtherProfileViewModel("anna", FakeSocialRepository(activities = listOf(shared)))
+        vm.load()
+        assertEquals(listOf(5L), (vm.state.value.activities as UiState.Success).data.map { it.id })
+    }
+
+    @Test
+    fun prywatnyProfilNiePobieraAktywnosci() {
+        val vm = OtherProfileViewModel("anna", FakeSocialRepository(profile = publicProfile(isPrivate = true)))
+        vm.load()
+        assertTrue(vm.state.value.activities is UiState.Loading)
     }
 }

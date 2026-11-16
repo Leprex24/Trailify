@@ -95,6 +95,7 @@ class FakeActivityRepository(var completedRouteIds: Set<Long> = emptySet()) : Ac
     override suspend fun save(draft: ActivityDraft): Activity = error("nieużywane")
     override suspend fun get(id: Long): Activity = error("nieużywane")
     override suspend fun delete(id: Long) = error("nieużywane")
+    override suspend fun setShared(id: Long, shared: Boolean) = error("nieużywane")
 }
 
 class FakeAuth(userId: String? = ME) : AuthRepository {

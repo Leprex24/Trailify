@@ -14,6 +14,9 @@ enum class UserStatus { ACTIVE, BLOCKED }
 
 enum class PoiStatus { PENDING, APPROVED, REJECTED }
 
+/** Kategoria ciekawego punktu, pokazywana tylko na jego karcie (na mapie wszystkie punkty wyglądają tak samo). */
+enum class PoiCategory { VIEWPOINT, NATURE, HISTORIC, CULTURE, RECREATION, OTHER }
+
 data class LatLng(val latitude: Double, val longitude: Double)
 
 data class Page<T>(
@@ -172,6 +175,8 @@ data class ActivitySummary(
     val durationSeconds: Int?,
     val avgPace: Double?, // min/km
     val stepCount: Int?,
+    /** Udostępniona na profilu i na osi czasu obserwujących; domyślnie aktywności są prywatne. */
+    val isShared: Boolean = false,
 )
 
 data class Activity(
@@ -216,6 +221,7 @@ data class Poi(
     val latitude: Double,
     val longitude: Double,
     val photoUrl: String?,
+    val category: PoiCategory = PoiCategory.OTHER,
 )
 
 data class PoiAdmin(
@@ -232,6 +238,7 @@ data class PoiDraft(
     val latitude: Double,
     val longitude: Double,
     val photo: PhotoRef? = null,
+    val category: PoiCategory = PoiCategory.OTHER,
 )
 
 data class PoiCollectionEntry(

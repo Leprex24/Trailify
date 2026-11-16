@@ -83,4 +83,44 @@ class UserListViewModelTest {
         assertEquals(UserListKind.FOLLOWERS, UserListKind.fromRoute("cokolwiek"))
         assertEquals(UserListKind.FOLLOWERS, UserListKind.fromRoute(null))
     }
+
+    @Test
+    fun usuwanieObserwujacegoDziala_tylkoNaWlasnejListeObserwujacych() {
+        assertTrue(UserListViewModel("ja", UserListKind.FOLLOWERS, FakeSocialRepository(), meId = "ja").canRemove)
+        assertFalse(UserListViewModel("ja", UserListKind.FOLLOWING, FakeSocialRepository(), meId = "ja").canRemove)
+        assertFalse(UserListViewModel("anna", UserListKind.FOLLOWERS, FakeSocialRepository(), meId = "ja").canRemove)
+        assertFalse(UserListViewModel("ja", UserListKind.FOLLOWERS, FakeSocialRepository()).canRemove)
+    }
+
+    @Test
+    fun usuniecieObserwujacegoWolaSerwerIZdejmujeOsobeZListy() {
+        val social = FakeSocialRepository(users = people(3))
+        val vm = UserListViewModel("ja", UserListKind.FOLLOWERS, social, meId = "ja")
+        vm.load()
+        vm.removeFollower(vm.state.value.items[1])
+        assertEquals(listOf("u2"), social.removedFollowers)
+        assertEquals(listOf("u1", "u3"), vm.state.value.items.map { it.id })
+    }
+
+    @Test
+    fun bladUsunieciaZostawiaOsobeNaLiscieIPokazujeKomunikat() {
+        val social = FakeSocialRepository(users = people(2), failFollow = true)
+        val vm = UserListViewModel("ja", UserListKind.FOLLOWERS, social, meId = "ja")
+        vm.load()
+        vm.removeFollower(vm.state.value.items[0])
+        assertEquals(2, vm.state.value.items.size)
+        assertTrue(vm.state.value.message != null)
+        vm.dismissMessage()
+        assertNull(vm.state.value.message)
+    }
+
+    @Test
+    fun cudzaListaNieUsuwaNikogo() {
+        val social = FakeSocialRepository(users = people(2))
+        val vm = UserListViewModel("anna", UserListKind.FOLLOWERS, social, meId = "ja")
+        vm.load()
+        vm.removeFollower(vm.state.value.items[0])
+        assertTrue(social.removedFollowers.isEmpty())
+        assertEquals(2, vm.state.value.items.size)
+    }
 }
